@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Game {
+  id             String   @id @default(cuid())
+  accessCode     String   @unique
+  name           String   @default("")
+  status         String   @default("LOBBY") // LOBBY | ACTIVE | COMPLETED
+  currentRound   Int      @default(0)
+  totalRounds    Int      @default(36)
+  demandPattern  String   @default("[4,4,4,4,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8]")
+  holdingCost    Float    @default(0.50)
+  backlogCost    Float    @default(1.00)
+  startInventory Int      @default(12)
+  orderDelay     Int      @default(2)
+  shippingDelay  Int      @default(2)
+  hostSessionId  String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  players  Player[]
+  rounds   Round[]
+
+  @@index([accessCode])
+  @@index([status])
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  gameId      String
+  name        String
+  role        String   @default("") // RETAILER | WHOLESALER | DISTRIBUTOR | FACTORY
+  sessionId   String
+  isConnected Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  game      Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  roundData PlayerRound[]
+
+  @@unique([gameId, sessionId])
+  @@index([sessionId])
+}
+
+model PlayerRound {
+  id                  String @id @default(cuid())
+  playerId            String
+  round               Int
+
+  inventoryBefore     Int    @default(0)
+  backlogBefore       Int    @default(0)
+  incomingOrder       Int    @default(0)
+  incomingShipment    Int    @default(0)
+  orderPlaced         Int?
+  shipmentSent        Int    @default(0)
+  inventoryAfter      Int    @default(0)
+  backlogAfter        Int    @default(0)
+  holdingCost         Float  @default(0)
+  backlogCost         Float  @default(0)
+  totalCostCumulative Float  @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, round])
+  @@index([playerId])
+  @@index([round])
+}
+
+model PipelineItem {
+  id          String @id @default(cuid())
+  gameId      String
+  type        String // ORDER | SHIPMENT | PRODUCTION
+  fromRole    String
+  toRole      String
+  quantity    Int
+  roundPlaced Int
+  roundDue    Int
+
+  @@index([gameId, type, toRole, roundDue])
+  @@index([gameId, roundDue])
+}
+
+model Round {
+  id                    String    @id @default(cuid())
+  gameId                String
+  round                 Int
+  retailerSubmitted     Boolean   @default(false)
+  wholesalerSubmitted   Boolean   @default(false)
+  distributorSubmitted  Boolean   @default(false)
+  factorySubmitted      Boolean   @default(false)
+  processedAt           DateTime?
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, round])
+}
