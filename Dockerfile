@@ -43,26 +43,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy Prisma runtime
+# Copy all node_modules (Prisma, socket.io, and all transitive deps)
+# Using full copy instead of cherry-picking to avoid missing transitive dependencies
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
-# Copy socket.io and all transitive dependencies for custom server
-COPY --from=builder /app/node_modules/socket.io ./node_modules/socket.io
-COPY --from=builder /app/node_modules/socket.io-adapter ./node_modules/socket.io-adapter
-COPY --from=builder /app/node_modules/socket.io-parser ./node_modules/socket.io-parser
-COPY --from=builder /app/node_modules/engine.io ./node_modules/engine.io
-COPY --from=builder /app/node_modules/engine.io-parser ./node_modules/engine.io-parser
-COPY --from=builder /app/node_modules/ws ./node_modules/ws
-COPY --from=builder /app/node_modules/cors ./node_modules/cors
-COPY --from=builder /app/node_modules/vary ./node_modules/vary
-COPY --from=builder /app/node_modules/debug ./node_modules/debug
-COPY --from=builder /app/node_modules/ms ./node_modules/ms
-COPY --from=builder /app/node_modules/accepts ./node_modules/accepts
-COPY --from=builder /app/node_modules/base64id ./node_modules/base64id
-COPY --from=builder /app/node_modules/mime-types ./node_modules/mime-types
-COPY --from=builder /app/node_modules/mime-db ./node_modules/mime-db
-COPY --from=builder /app/node_modules/negotiator ./node_modules/negotiator
 
 # Copy bundled custom server (Socket.io + Next.js)
 COPY --from=builder --chown=nextjs:nodejs /app/custom-server.js ./custom-server.js
