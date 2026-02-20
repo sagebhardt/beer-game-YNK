@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { C2S, S2C } from "@/lib/socket-events";
 import { formatCurrency } from "@/lib/utils";
+import { PageShell } from "@/components/layout/page-shell";
 
 interface AdminGameSummary {
   id: string;
@@ -187,229 +188,220 @@ export default function AdminPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando admin...</p>
+        <p className="text-[var(--text-muted)]">Cargando admin...</p>
       </div>
     );
   }
 
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
-          >
+      <PageShell
+        title="Panel Administrador"
+        subtitle="Acceso protegido para monitoreo y gestión de partidas."
+        rightSlot={
+          <Link href="/" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-body)]">
             <ArrowLeft className="w-4 h-4" />
             Volver
           </Link>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#2c02c6]" />
-                Panel Administrador
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <label className="text-sm font-medium text-gray-700">Clave admin</label>
-              <Input
-                type="password"
-                value={adminKey}
-                onChange={(event) => setAdminKey(event.target.value)}
-                placeholder="Ingresa clave"
-              />
-              {authError && <p className="text-sm text-red-600">{authError}</p>}
-              <Button className="w-full" onClick={handleLogin}>
-                <Lock className="w-4 h-4" />
-                Ingresar
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        }
+      >
+        <Card className="mx-auto w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-[var(--accent)]" />
+              Ingresar al dashboard
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <label className="text-sm font-semibold text-[var(--text-body)]">Clave admin</label>
+            <Input
+              type="password"
+              value={adminKey}
+              onChange={(event) => setAdminKey(event.target.value)}
+              placeholder="Ingresa clave"
+            />
+            {authError ? <p className="text-sm text-[var(--danger)]">{authError}</p> : null}
+            <Button className="w-full" onClick={handleLogin}>
+              <Lock className="w-4 h-4" />
+              Ingresar
+            </Button>
+          </CardContent>
+        </Card>
+      </PageShell>
     );
   }
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-bold">Admin de Juegos</h1>
-            <p className="text-sm text-gray-500">Monitoreo en tiempo real y gestión de partidas</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                window.location.href = `/api/admin/exports/overview?format=csv&mode=${modeFilter}`;
-              }}
-            >
-              <Download className="w-4 h-4" />
-              CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                window.location.href = `/api/admin/exports/overview?format=xlsx&mode=${modeFilter}`;
-              }}
-            >
-              <Download className="w-4 h-4" />
-              Excel
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              Salir
-            </Button>
-          </div>
+    <PageShell
+      title="Admin de Juegos"
+      subtitle="Monitoreo en tiempo real de rondas, costos y estado operacional."
+      rightSlot={
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = `/api/admin/exports/overview?format=csv&mode=${modeFilter}`;
+            }}
+          >
+            <Download className="w-4 h-4" /> CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = `/api/admin/exports/overview?format=xlsx&mode=${modeFilter}`;
+            }}
+          >
+            <Download className="w-4 h-4" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            Salir
+          </Button>
         </div>
+      }
+    >
+      {analytics ? (
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-[var(--text-muted)]">Juegos completados</p>
+              <p className="kpi-value text-2xl font-bold text-[var(--text-strong)]">{analytics.kpis.totalGames}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-[var(--text-muted)]">Costo promedio</p>
+              <p className="kpi-value text-xl font-bold text-[var(--text-strong)]">{formatCurrency(analytics.kpis.avgCost)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-[var(--text-muted)]">Costo mediana</p>
+              <p className="kpi-value text-xl font-bold text-[var(--text-strong)]">{formatCurrency(analytics.kpis.medianCost)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-[var(--text-muted)]">Modo TEST / MULTI</p>
+              <p className="kpi-value text-xl font-bold text-[var(--text-strong)]">
+                {(analytics.kpis.countsByMode.TEST ?? 0)} / {(analytics.kpis.countsByMode.MULTI ?? 0)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
-        {analytics && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <Card>
-              <CardContent className="py-4">
-                <p className="text-xs text-gray-500">Juegos completados</p>
-                <p className="text-2xl font-bold">{analytics.kpis.totalGames}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-4">
-                <p className="text-xs text-gray-500">Costo promedio</p>
-                <p className="text-xl font-bold">{formatCurrency(analytics.kpis.avgCost)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-4">
-                <p className="text-xs text-gray-500">Costo mediana</p>
-                <p className="text-xl font-bold">{formatCurrency(analytics.kpis.medianCost)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-4">
-                <p className="text-xs text-gray-500">Modo TEST / MULTI</p>
-                <p className="text-xl font-bold">
-                  {(analytics.kpis.countsByMode.TEST ?? 0)} / {(analytics.kpis.countsByMode.MULTI ?? 0)}
-                </p>
-              </CardContent>
-            </Card>
+      <Card className="mb-4">
+        <CardContent className="grid grid-cols-1 gap-3 py-4 md:grid-cols-4">
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-xs text-[var(--text-muted)]">Buscar</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--text-muted)]" />
+              <Input
+                className="pl-9"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Código o nombre"
+              />
+            </div>
           </div>
-        )}
+          <div>
+            <label className="mb-1 block text-xs text-[var(--text-muted)]">Estado</label>
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="ALL">Todos</option>
+              <option value="LOBBY">LOBBY</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="COMPLETED">COMPLETED</option>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-[var(--text-muted)]">Modo</label>
+            <Select value={modeFilter} onChange={(event) => setModeFilter(event.target.value)}>
+              <option value="ALL">Todos</option>
+              <option value="MULTI">MULTI</option>
+              <option value="TEST">TEST</option>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card className="mb-4">
-          <CardContent className="py-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="md:col-span-2">
-              <label className="text-xs text-gray-500 mb-1 block">Buscar</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                <Input
-                  className="pl-9"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Código o nombre"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Estado</label>
-              <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                <option value="ALL">Todos</option>
-                <option value="LOBBY">LOBBY</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="COMPLETED">COMPLETED</option>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Modo</label>
-              <Select value={modeFilter} onChange={(event) => setModeFilter(event.target.value)}>
-                <option value="ALL">Todos</option>
-                <option value="MULTI">MULTI</option>
-                <option value="TEST">TEST</option>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Juegos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b">
-                    <th className="py-2 pr-2">Código</th>
-                    <th className="py-2 pr-2">Nombre</th>
-                    <th className="py-2 pr-2">Estado</th>
-                    <th className="py-2 pr-2">Modo</th>
-                    <th className="py-2 pr-2">Ronda</th>
-                    <th className="py-2 pr-2">Roles</th>
-                    <th className="py-2 pr-2">Submissions</th>
-                    <th className="py-2 pr-2">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleGames.map((game) => {
-                    const isBusy = busyCode === game.accessCode;
-                    return (
-                      <tr key={game.id} className="border-b border-gray-100 align-top">
-                        <td className="py-2 pr-2 font-mono">{game.accessCode}</td>
-                        <td className="py-2 pr-2">{game.name || "Sin nombre"}</td>
-                        <td className="py-2 pr-2">
-                          <Badge variant="outline">{game.status}</Badge>
-                        </td>
-                        <td className="py-2 pr-2">{game.mode}</td>
-                        <td className="py-2 pr-2">
-                          {game.currentRound}/{game.totalRounds}
-                        </td>
-                        <td className="py-2 pr-2">{game.assignedRoles}/4</td>
-                        <td className="py-2 pr-2">
-                          {game.submissions
-                            ? `${game.submissions.ready}/${game.submissions.total}`
-                            : "-"}
-                        </td>
-                        <td className="py-2 pr-2">
-                          <div className="flex flex-wrap gap-2">
-                            <Link href={`/admin/juegos/${game.accessCode}`}>
-                              <Button size="sm" variant="outline">Ver</Button>
-                            </Link>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => runAction(game.accessCode, "close")}
-                              disabled={isBusy}
-                            >
-                              {isBusy && busyAction === "close" ? "..." : "Cerrar"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => runAction(game.accessCode, "terminate")}
-                              disabled={isBusy}
-                            >
-                              {isBusy && busyAction === "terminate" ? "..." : "Terminar"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => runAction(game.accessCode, "delete")}
-                              disabled={isBusy}
-                            >
-                              {isBusy && busyAction === "delete" ? "..." : "Eliminar"}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Juegos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-[var(--text-muted)]">
+                  <th className="py-2 pr-2">Código</th>
+                  <th className="py-2 pr-2">Nombre</th>
+                  <th className="py-2 pr-2">Estado</th>
+                  <th className="py-2 pr-2">Modo</th>
+                  <th className="py-2 pr-2">Ronda</th>
+                  <th className="py-2 pr-2">Roles</th>
+                  <th className="py-2 pr-2">Submissions</th>
+                  <th className="py-2 pr-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleGames.map((game) => {
+                  const isBusy = busyCode === game.accessCode;
+                  return (
+                    <tr key={game.id} className="border-b border-[var(--bg-muted)] align-top">
+                      <td className="py-2 pr-2 font-mono">{game.accessCode}</td>
+                      <td className="py-2 pr-2">{game.name || "Sin nombre"}</td>
+                      <td className="py-2 pr-2">
+                        <Badge variant="outline">{game.status}</Badge>
+                      </td>
+                      <td className="py-2 pr-2">{game.mode}</td>
+                      <td className="py-2 pr-2">{game.currentRound}/{game.totalRounds}</td>
+                      <td className="py-2 pr-2">{game.assignedRoles}/4</td>
+                      <td className="py-2 pr-2">
+                        {game.submissions
+                          ? `${game.submissions.ready}/${game.submissions.total}`
+                          : "-"}
+                      </td>
+                      <td className="py-2 pr-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Link href={`/admin/juegos/${game.accessCode}`}>
+                            <Button size="sm" variant="outline">Ver</Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => runAction(game.accessCode, "close")}
+                            disabled={isBusy}
+                          >
+                            {isBusy && busyAction === "close" ? "..." : "Cerrar"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => runAction(game.accessCode, "terminate")}
+                            disabled={isBusy}
+                          >
+                            {isBusy && busyAction === "terminate" ? "..." : "Terminar"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => runAction(game.accessCode, "delete")}
+                            disabled={isBusy}
+                          >
+                            {isBusy && busyAction === "delete" ? "..." : "Eliminar"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </PageShell>
   );
 }

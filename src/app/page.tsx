@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Beer, Plus, Users, Shield } from "lucide-react";
+import { Beer, Plus, Users, Shield, ArrowRight } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -8,85 +8,72 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/layout/page-shell";
+
+const actions = [
+  {
+    href: "/crear",
+    title: "Crear partida",
+    description: "Configura la sesión y comparte el código con tu equipo.",
+    icon: Plus,
+    cta: "Configurar juego",
+  },
+  {
+    href: "/unirse",
+    title: "Unirse por código",
+    description: "Ingresa tu nombre, código y toma tu lugar en la cadena.",
+    icon: Users,
+    cta: "Entrar a sala",
+  },
+  {
+    href: "/admin",
+    title: "Panel admin",
+    description: "Monitorea partidas, exporta datos y controla sesiones activas.",
+    icon: Shield,
+    cta: "Abrir admin",
+  },
+];
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#2c02c6]/10 mb-4">
-            <Beer className="w-8 h-8 text-[#2c02c6]" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">Beer Game YNK</h1>
-          <p className="mt-2 text-gray-500">
-            Simulación de cadena de suministro — El Juego de la Cerveza
-          </p>
+    <PageShell
+      title="Beer Game YNK"
+      subtitle="Simulación de cadena de suministro para visualizar decisiones, retrasos y efecto látigo."
+      rightSlot={
+        <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-body)]">
+          <Beer className="h-4 w-4 text-[var(--accent)]" />
+          Versión académica 2026.2.1
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link href="/crear">
-            <Card className="hover:border-[#2c02c6]/40 hover:shadow-md transition-all cursor-pointer h-full">
-              <CardHeader>
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#2c02c6]/10 mb-2">
-                  <Plus className="w-5 h-5 text-[#2c02c6]" />
-                </div>
-                <CardTitle>Crear Juego</CardTitle>
-                <CardDescription>
-                  Crea una nueva partida y comparte el código con tu equipo
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Crear Partida</Button>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/unirse">
-            <Card className="hover:border-[#2c02c6]/40 hover:shadow-md transition-all cursor-pointer h-full">
-              <CardHeader>
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#2c02c6]/10 mb-2">
-                  <Users className="w-5 h-5 text-[#2c02c6]" />
-                </div>
-                <CardTitle>Unirse a Juego</CardTitle>
-                <CardDescription>
-                  Ingresa el código de acceso para unirte a una partida existente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full">
-                  Unirse
-                </Button>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/admin">
-            <Card className="hover:border-[#2c02c6]/40 hover:shadow-md transition-all cursor-pointer h-full">
-              <CardHeader>
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#2c02c6]/10 mb-2">
-                  <Shield className="w-5 h-5 text-[#2c02c6]" />
-                </div>
-                <CardTitle>Panel Admin</CardTitle>
-                <CardDescription>
-                  Monitorea partidas en vivo, analytics y exportación
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full">
-                  Administrar
-                </Button>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
-        <div className="mt-8 text-center text-xs text-gray-400">
-          <p>
-            Simulación del Efecto Látigo en cadenas de suministro con retraso de
-            4 semanas
-          </p>
-        </div>
+      }
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <Link key={action.href} href={action.href} className="block h-full">
+              <Card className="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-26px_rgba(16,32,74,0.75)]">
+                <CardHeader>
+                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#e6efff]">
+                    <Icon className="h-5 w-5 text-[var(--accent)]" />
+                  </div>
+                  <CardTitle>{action.title}</CardTitle>
+                  <CardDescription>{action.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full justify-between">
+                    {action.cta}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
-    </div>
+
+      <div className="mt-5 rounded-xl border border-[var(--border-soft)] bg-white p-4 text-sm text-[var(--text-muted)]">
+        Cada ronda simula una semana con retraso logístico. Tu objetivo es mantener inventario saludable y backlog controlado.
+      </div>
+    </PageShell>
   );
 }

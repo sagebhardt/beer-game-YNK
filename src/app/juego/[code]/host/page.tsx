@@ -2,26 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Beer,
-  Eye,
-  Check,
-  Clock,
-  Wifi,
-  WifiOff,
-  ArrowRight,
-} from "lucide-react";
+import { Beer, Eye, Check, Clock, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ROLES, ROLE_LABELS, DOWNSTREAM, type Role } from "@/lib/types";
 import { useSocket } from "@/lib/use-socket";
 import { S2C } from "@/lib/socket-events";
 import { formatCurrency } from "@/lib/utils";
+import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
+import { PageShell } from "@/components/layout/page-shell";
 
 interface HostStateData {
   game: {
@@ -139,193 +128,154 @@ export default function HostPage() {
   if (!state) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando...</p>
+        <p className="text-[var(--text-muted)]">Cargando...</p>
       </div>
     );
   }
 
   const { game, players, submissions, pipeline } = state;
 
-  // Sort players by chain order
   const orderedPlayers = ROLES.map((role) =>
     players.find((p) => p.role === role)
   ).filter(Boolean);
 
+  const chainStatuses = Object.fromEntries(
+    ROLES.map((role) => {
+      const p = players.find((x) => x.role === role);
+      const submitted = submissions
+        ? submissions[role.toLowerCase() as keyof typeof submissions]
+        : false;
+
+      if (!p || !p.isConnected) return [role, "danger"];
+      if (submitted) return [role, "ok"];
+      return [role, "warn"];
+    })
+  ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>;
+
+  const chainText = Object.fromEntries(
+    ROLES.map((role) => {
+      const p = players.find((x) => x.role === role);
+      if (!p) return [role, "Sin jugador"];
+      const submitted = submissions
+        ? submissions[role.toLowerCase() as keyof typeof submissions]
+        : false;
+      return [role, submitted ? `${p.name} · Listo` : `${p.name} · Esperando`];
+    })
+  ) as Partial<Record<Role, string>>;
+
+  const inTransit = Object.fromEntries(
+    ROLES.map((role) => {
+      const downstream = DOWNSTREAM[role];
+      const qty = pipeline
+        .filter((p) => p.type === "SHIPMENT" && p.fromRole === role && p.toRole === downstream)
+        .reduce((sum, p) => sum + p.quantity, 0);
+      return [role, qty];
+    })
+  ) as Partial<Record<Role, number>>;
+
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Beer className="w-5 h-5 text-[#2c02c6]" />
-            <h1 className="font-bold text-lg">
-              Vista del Anfitrión
-              {game.name && (
-                <span className="text-gray-400 font-normal text-sm ml-2">
-                  — {game.name}
-                </span>
-              )}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Eye className="w-4 h-4 text-gray-400" />
-            <Badge variant="outline">
-              Ronda {game.currentRound} / {game.totalRounds}
-            </Badge>
-            {isConnected ? (
-              <Wifi className="w-4 h-4 text-green-500" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-red-500" />
-            )}
-          </div>
+    <PageShell
+      title="Vista del Anfitrión"
+      subtitle={game.name ? `${game.name} · monitoreo de decisiones en tiempo real` : "Monitoreo de decisiones en tiempo real"}
+      rightSlot={
+        <div className="flex items-center gap-2">
+          <Badge variant="outline"><Eye className="h-3.5 w-3.5" /> Ronda {game.currentRound}/{game.totalRounds}</Badge>
+          {isConnected ? (
+            <Badge variant="success"><Wifi className="h-3.5 w-3.5" /> Conectado</Badge>
+          ) : (
+            <Badge variant="destructive"><WifiOff className="h-3.5 w-3.5" /> Offline</Badge>
+          )}
         </div>
+      }
+    >
+      <SupplyChainStrip statuses={chainStatuses} statusText={chainText} inTransit={inTransit} className="mb-4" />
 
-        {/* Supply Chain Overview */}
-        <div className="flex items-center justify-center gap-2 mb-6 overflow-x-auto py-2">
-          {orderedPlayers.map((player) => {
-            if (!player) return null;
-            const role = player.role as Role;
-            const submitted = submissions
-              ? submissions[role.toLowerCase() as keyof typeof submissions]
-              : false;
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {orderedPlayers.map((player) => {
+          if (!player) return null;
+          const role = player.role as Role;
+          const submitted = submissions
+            ? submissions[role.toLowerCase() as keyof typeof submissions]
+            : false;
+          const lastRound =
+            player.roundData.length > 0
+              ? player.roundData[player.roundData.length - 1]
+              : null;
 
-            // Pipeline between this player and next
-            const downstream = DOWNSTREAM[role];
-            const pipelineToDownstream = pipeline.filter(
-              (p) => p.type === "SHIPMENT" && p.fromRole === role && p.toRole === downstream
-            );
-            const totalInTransit = pipelineToDownstream.reduce((s, p) => s + p.quantity, 0);
-
-            return (
-              <div key={role} className="flex items-center gap-2 flex-shrink-0">
-                <ArrowRight className="w-4 h-4 text-gray-300" />
-                {totalInTransit > 0 && (
-                  <div className="text-xs text-gray-400 bg-gray-50 rounded px-1.5 py-0.5">
-                    {totalInTransit} →
-                  </div>
-                )}
-                <div className={`text-center rounded-lg px-3 py-2 border ${submitted ? "bg-green-50 border-green-200" : "bg-white border-gray-200"}`}>
-                  <p className="text-xs text-gray-500">
-                    {ROLE_LABELS[role]}
-                  </p>
-                  <p className="text-xs font-medium">{player.name}</p>
-                  <div className="flex gap-2 mt-1 text-xs">
-                    <span className="text-green-600">{player.inventory}inv</span>
-                    {player.backlog > 0 && (
-                      <span className="text-red-600">{player.backlog}bl</span>
-                    )}
-                  </div>
-                  {submitted ? (
-                    <Check className="w-3 h-3 text-green-500 mx-auto mt-1" />
-                  ) : (
-                    <Clock className="w-3 h-3 text-gray-400 mx-auto mt-1" />
-                  )}
+          return (
+            <Card key={role}>
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">{ROLE_LABELS[role]}</CardTitle>
+                  <Badge variant={submitted ? "success" : "warning"}>{submitted ? "Listo" : "Pendiente"}</Badge>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Player Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-          {orderedPlayers.map((player) => {
-            if (!player) return null;
-            const role = player.role as Role;
-            const lastRound =
-              player.roundData.length > 0
-                ? player.roundData[player.roundData.length - 1]
-                : null;
-
-            return (
-              <Card key={role}>
-                <CardHeader className="py-3">
+                <p className="text-xs text-[var(--text-muted)]">{player.name}</p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">Inventario</p>
+                    <p className="font-bold text-[var(--ok)]">{player.inventory}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">Backlog</p>
+                    <p className={`font-bold ${player.backlog > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
+                      {player.backlog}
+                    </p>
+                  </div>
+                </div>
+                <div className="border-t border-[var(--border-soft)] pt-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">
-                      {ROLE_LABELS[role]}
-                    </CardTitle>
-                    <div className="flex items-center gap-1">
-                      <span className={`w-2 h-2 rounded-full ${player.isConnected ? "bg-green-500" : "bg-gray-300"}`} />
-                      <span className="text-xs text-gray-400">
-                        {player.name}
-                      </span>
-                    </div>
+                    <span className="text-xs text-[var(--text-muted)]">Costo total</span>
+                    <span className="text-sm font-bold">{formatCurrency(player.totalCost)}</span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-400">Inventario</p>
-                      <p className="font-bold text-green-600">
-                        {player.inventory}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Backlog</p>
-                      <p className={`font-bold ${player.backlog > 0 ? "text-red-600" : "text-gray-300"}`}>
-                        {player.backlog}
-                      </p>
-                    </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-xs text-[var(--text-muted)]">Última orden</span>
+                    <span className="text-xs font-semibold">{lastRound?.orderPlaced ?? 0} uds</span>
                   </div>
-                  <div className="border-t pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">Costo total</span>
-                      <span className="text-sm font-bold">
-                        {formatCurrency(player.totalCost)}
-                      </span>
-                    </div>
-                    {lastRound && (
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-gray-400">
-                          Última orden
-                        </span>
-                        <span className="text-xs font-medium">
-                          {lastRound.orderPlaced} uds
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Round Submission Status */}
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Progreso de la ronda {game.currentRound}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {ROLES.map((r) => {
-                const submitted = submissions
-                  ? submissions[r.toLowerCase() as keyof typeof submissions]
-                  : false;
-                return (
-                  <div
-                    key={r}
-                    className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                      submitted
-                        ? "bg-green-50 text-green-700"
-                        : "bg-gray-50 text-gray-500"
-                    }`}
-                  >
-                    {submitted ? (
-                      <Check className="w-3.5 h-3.5" />
-                    ) : (
-                      <Clock className="w-3.5 h-3.5" />
-                    )}
-                    {ROLE_LABELS[r]}
-                    {submitted ? " — Listo" : " — Esperando"}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                  <span className={`h-2 w-2 rounded-full ${player.isConnected ? "bg-[var(--ok)]" : "bg-[var(--danger)]"}`} />
+                  {player.isConnected ? "Jugador conectado" : "Jugador desconectado"}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-    </div>
+
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-semibold text-[var(--text-body)]">Progreso de ronda</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {ROLES.map((r) => {
+              const submitted = submissions
+                ? submissions[r.toLowerCase() as keyof typeof submissions]
+                : false;
+              return (
+                <div
+                  key={r}
+                  className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
+                    submitted
+                      ? "bg-[#f0fdf5] text-[var(--ok)]"
+                      : "bg-[var(--bg-muted)] text-[var(--text-muted)]"
+                  }`}
+                >
+                  <span className="font-medium">{ROLE_LABELS[r]}</span>
+                  {submitted ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+        <Beer className="h-3.5 w-3.5" />
+        Señal recomendada: si dos o más roles quedan pendientes por más de una ronda, intervenir para evitar deriva operativa.
+      </div>
+    </PageShell>
   );
 }

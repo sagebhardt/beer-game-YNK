@@ -70,6 +70,22 @@ export interface RoundHistoryEntry {
   totalCostCumulative: number;
 }
 
+export interface ChainNodeViewModel {
+  role: Role;
+  label: string;
+  active?: boolean;
+  statusText?: string;
+  statusTone?: "ok" | "warn" | "danger" | "neutral";
+  transitToNext?: number;
+}
+
+export interface RoundStatusViewModel {
+  role: Role;
+  submitted: boolean;
+  playerName?: string;
+  isConnected?: boolean;
+}
+
 export const DEMAND_PRESETS: Record<
   string,
   { label: string; description: string; pattern: number[] }

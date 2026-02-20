@@ -1,7 +1,73 @@
 @import "tailwindcss";
 
+:root {
+  --font-body: var(--font-manrope);
+  --font-display: var(--font-space-grotesk);
+
+  --bg-canvas: #f3f5fb;
+  --bg-surface: #ffffff;
+  --bg-muted: #ecf0f7;
+  --bg-accent: #113173;
+
+  --text-strong: #0e1a33;
+  --text-body: #32425f;
+  --text-muted: #667798;
+
+  --border-soft: #d7e0ef;
+  --ring: #1646a1;
+
+  --ok: #138a52;
+  --warn: #b7791f;
+  --danger: #b11f3d;
+  --accent: #1f4fb6;
+}
+
+* {
+  border-color: var(--border-soft);
+}
+
+html,
 body {
-  font-family: var(--font-inter), system-ui, sans-serif;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  color: var(--text-body);
+  background: radial-gradient(circle at 20% 0%, #e8efff 0%, var(--bg-canvas) 38%, #eef2f9 100%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  color: var(--text-strong);
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.panel {
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px -20px rgba(31, 46, 91, 0.5);
+}
+
+.kpi-value {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 1rem 0.9rem 1.4rem;
+  }
 }

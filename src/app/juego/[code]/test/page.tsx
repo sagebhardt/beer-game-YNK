@@ -11,6 +11,8 @@ import { ROLE_LABELS, ROLES, type Role } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useSocket } from "@/lib/use-socket";
 import { S2C } from "@/lib/socket-events";
+import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
+import { PageShell } from "@/components/layout/page-shell";
 
 interface TestStateData {
   game: {
@@ -160,104 +162,114 @@ export default function TestPage() {
   if (!state) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando modo test...</p>
+        <p className="text-[var(--text-muted)]">Cargando modo test...</p>
       </div>
     );
   }
 
+  const chainStatuses = Object.fromEntries(
+    ROLES.map((role) => {
+      const submitted = state.submissions
+        ? state.submissions[role.toLowerCase() as keyof typeof state.submissions]
+        : false;
+      return [role, submitted ? "ok" : "warn"];
+    })
+  ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>;
+
+  const chainText = Object.fromEntries(
+    ROLES.map((role) => {
+      const submitted = state.submissions
+        ? state.submissions[role.toLowerCase() as keyof typeof state.submissions]
+        : false;
+      return [role, submitted ? "Pedido definido" : "Pendiente"];
+    })
+  ) as Partial<Record<Role, string>>;
+
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Beer className="w-5 h-5 text-[#2c02c6]" />
-            <h1 className="text-lg font-bold">Modo Test</h1>
-            {state.game.name && (
-              <span className="text-sm text-gray-400">{state.game.name}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline">
-              Ronda {state.game.currentRound} / {state.game.totalRounds}
-            </Badge>
-            {isConnected ? (
-              <Wifi className="w-4 h-4 text-green-500" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-red-500" />
-            )}
-          </div>
+    <PageShell
+      title="Modo Test"
+      subtitle="Controla los 4 roles y evalúa sensibilidad del sistema en un solo tablero."
+      rightSlot={
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">Ronda {state.game.currentRound}/{state.game.totalRounds}</Badge>
+          {isConnected ? (
+            <Badge variant="success"><Wifi className="h-3.5 w-3.5" /> Conectado</Badge>
+          ) : (
+            <Badge variant="destructive"><WifiOff className="h-3.5 w-3.5" /> Offline</Badge>
+          )}
         </div>
+      }
+    >
+      <SupplyChainStrip statuses={chainStatuses} statusText={chainText} className="mb-4" />
 
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {error ? <p className="mb-3 text-sm text-[var(--danger)]">{error}</p> : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {orderedPlayers.map((player) => {
-            const lastRound =
-              player.roundData.length > 0
-                ? player.roundData[player.roundData.length - 1]
-                : null;
-            const role = player.role as Role;
-            const submitted = state.submissions
-              ? state.submissions[role.toLowerCase() as keyof typeof state.submissions]
-              : false;
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {orderedPlayers.map((player) => {
+          const lastRound =
+            player.roundData.length > 0
+              ? player.roundData[player.roundData.length - 1]
+              : null;
+          const role = player.role as Role;
+          const submitted = state.submissions
+            ? state.submissions[role.toLowerCase() as keyof typeof state.submissions]
+            : false;
 
-            return (
-              <Card key={player.id} className={submitted ? "border-green-200" : ""}>
-                <CardHeader className="py-3">
-                  <CardTitle className="text-base flex items-center justify-between">
-                    {ROLE_LABELS[role]}
-                    {submitted ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Clock className="w-4 h-4 text-gray-400" />
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <p>Inventario: <span className="font-medium text-green-700">{player.inventory}</span></p>
-                    <p>Backlog: <span className="font-medium text-red-700">{player.backlog}</span></p>
-                    <p>Costo total: <span className="font-medium">{formatCurrency(player.totalCost)}</span></p>
-                    <p>
-                      Pedido recibido: <span className="font-medium">{lastRound?.incomingOrder ?? 0}</span>
-                    </p>
-                    <p>
-                      Envío recibido: <span className="font-medium">{lastRound?.incomingShipment ?? 0}</span>
-                    </p>
-                    <p>
-                      Última orden: <span className="font-medium">{lastRound?.orderPlaced ?? 0}</span>
-                    </p>
-                  </div>
+          return (
+            <Card key={player.id} className={submitted ? "border-[#c7f2d6]" : ""}>
+              <CardHeader className="py-3">
+                <CardTitle className="text-base flex items-center justify-between">
+                  {ROLE_LABELS[role]}
+                  {submitted ? (
+                    <Check className="w-4 h-4 text-[var(--ok)]" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-[var(--text-muted)]" />
+                  )}
+                </CardTitle>
+                <p className="text-xs text-[var(--text-muted)]">{player.name}</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1 text-xs text-[var(--text-body)]">
+                  <p>Inventario: <span className="font-semibold text-[var(--ok)]">{player.inventory}</span></p>
+                  <p>Backlog: <span className="font-semibold text-[var(--danger)]">{player.backlog}</span></p>
+                  <p>Costo total: <span className="font-semibold">{formatCurrency(player.totalCost)}</span></p>
+                  <p>Pedido recibido: <span className="font-semibold">{lastRound?.incomingOrder ?? 0}</span></p>
+                  <p>Envío recibido: <span className="font-semibold">{lastRound?.incomingShipment ?? 0}</span></p>
+                </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-gray-500 uppercase tracking-wide">
-                      Pedido de esta ronda
-                    </label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={orders[role]}
-                      onChange={(event) =>
-                        setOrders((prev) => ({ ...prev, [role]: event.target.value }))
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <p className="text-sm text-gray-500">
-            Define pedidos para los 4 roles y procesa la ronda completa.
-          </p>
-          <Button onClick={processRound} disabled={loading}>
-            <Send className="w-4 h-4" />
-            {loading ? "Procesando..." : "Procesar ronda"}
-          </Button>
-        </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Pedido de esta ronda
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={orders[role]}
+                    onChange={(event) =>
+                      setOrders((prev) => ({ ...prev, [role]: event.target.value }))
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-    </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--text-muted)]">
+          Define los pedidos de los 4 roles y procesa la semana completa.
+        </p>
+        <Button onClick={processRound} disabled={loading}>
+          <Send className="w-4 h-4" />
+          {loading ? "Procesando..." : "Procesar ronda"}
+        </Button>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+        <Beer className="h-3.5 w-3.5" />
+        Usa esta vista para calibrar escenarios antes de correr sesiones con jugadores reales.
+      </div>
+    </PageShell>
   );
 }
