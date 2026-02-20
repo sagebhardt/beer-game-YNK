@@ -25,6 +25,10 @@ RUN mkdir -p public
 # Build Next.js (standalone output)
 RUN npm run build
 
+# Bundle custom server (Socket.io + Next.js wrapper) from TypeScript
+RUN npx esbuild server.ts --bundle --platform=node --target=node22 --outfile=custom-server.js \
+    --external:next --external:socket.io --external:@prisma/client
+
 # --- runner ---
 FROM base AS runner
 WORKDIR /app
@@ -59,6 +63,9 @@ COPY --from=builder /app/node_modules/mime-types ./node_modules/mime-types
 COPY --from=builder /app/node_modules/mime-db ./node_modules/mime-db
 COPY --from=builder /app/node_modules/negotiator ./node_modules/negotiator
 
+# Copy bundled custom server (Socket.io + Next.js)
+COPY --from=builder --chown=nextjs:nodejs /app/custom-server.js ./custom-server.js
+
 # Copy template database
 COPY --from=builder --chown=nextjs:nodejs /app/temp.db /app/template.db
 
@@ -70,4 +77,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Database initialization + start
-CMD ["sh", "-c", "SCHEMA_V=1; if [ ! -f /app/data/prod.db ] || [ ! -f /app/data/.schema-v$SCHEMA_V ]; then cp /app/template.db /app/data/prod.db; touch /app/data/.schema-v$SCHEMA_V; echo 'DB initialized (schema v'$SCHEMA_V')'; fi && DATABASE_URL='file:/app/data/prod.db' node server.js"]
+CMD ["sh", "-c", "SCHEMA_V=1; if [ ! -f /app/data/prod.db ] || [ ! -f /app/data/.schema-v$SCHEMA_V ]; then cp /app/template.db /app/data/prod.db; touch /app/data/.schema-v$SCHEMA_V; echo 'DB initialized (schema v'$SCHEMA_V')'; fi && DATABASE_URL='file:/app/data/prod.db' node custom-server.js"]
