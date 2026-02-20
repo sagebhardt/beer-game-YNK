@@ -27,7 +27,8 @@ app.prepare().then(() => {
   setupSocketHandlers(io);
 
   const port = parseInt(process.env.PORT || "3000", 10);
-  httpServer.listen(port, () => {
-    console.log(`> Beer Game listo en http://localhost:${port}`);
+  const hostname = process.env.HOSTNAME || "0.0.0.0";
+  httpServer.listen(port, hostname, () => {
+    console.log(`> Beer Game listo en http://${hostname}:${port}`);
   });
 });
