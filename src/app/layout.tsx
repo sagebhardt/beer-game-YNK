@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { TopNav } from "@/components/layout/top-nav";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${spaceGrotesk.variable} antialiased min-h-screen flex flex-col`}
       >
+        <TopNav />
         <main className="flex-1">{children}</main>
         <footer className="mt-auto border-t border-[var(--border-soft)] bg-white/80 px-4 py-3 text-center text-xs text-[var(--text-muted)] backdrop-blur-sm">
           <small>
