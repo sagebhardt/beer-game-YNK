@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function ResultsError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -17,6 +18,9 @@ export default function ResultsError({
       <p className="text-sm text-[var(--text-muted)]">
         Ocurrió un problema al mostrar los datos del juego.
       </p>
+      <pre className="max-w-lg overflow-auto rounded bg-gray-100 p-3 text-xs text-gray-700">
+        {error.message}
+      </pre>
       <div className="flex gap-3">
         <Button variant="outline" onClick={reset}>
           Reintentar

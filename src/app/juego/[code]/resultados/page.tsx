@@ -93,26 +93,28 @@ export default function ResultadosPage() {
     );
   }
 
-  const { game, players, optimal } = data;
+  const { game, players = [], optimal } = data;
 
   const sortedByCost = [...players]
-    .filter((p) => ROLES.includes(p.role as Role))
+    .filter((p) => p.roundData && ROLES.includes(p.role as Role))
     .sort((a, b) => a.totalCost - b.totalCost);
   const winner = sortedByCost[0];
   const totalChainCost = sortedByCost.reduce((s, p) => s + p.totalCost, 0);
 
   const orderedPlayers = ROLES.map((role) =>
     players.find((p) => p.role === role)
-  ).filter(Boolean) as ResultsPlayer[];
+  ).filter((p): p is ResultsPlayer => !!p && Array.isArray(p.roundData));
 
   const summary = useMemo(() => {
     const roleVariability = orderedPlayers.map((player) => {
-      const orders = player.roundData.map((r) => r.orderPlaced);
+      const orders = (player.roundData ?? []).map((r) => r.orderPlaced);
       return {
         role: player.role as Role,
         playerName: player.name,
         variability: stdDev(orders),
-        peakBacklog: Math.max(0, ...player.roundData.map((r) => r.backlogAfter)),
+        peakBacklog: player.roundData.length > 0
+          ? Math.max(0, ...player.roundData.map((r) => r.backlogAfter))
+          : 0,
       };
     });
 
