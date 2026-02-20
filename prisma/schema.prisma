@@ -12,8 +12,10 @@ model Game {
   accessCode     String   @unique
   name           String   @default("")
   status         String   @default("LOBBY") // LOBBY | ACTIVE | COMPLETED
+  mode           String   @default("MULTI") // MULTI | TEST
   currentRound   Int      @default(0)
   totalRounds    Int      @default(36)
+  demandPresetKey String  @default("classic")
   demandPattern  String   @default("[4,4,4,4,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8]")
   holdingCost    Float    @default(0.50)
   backlogCost    Float    @default(1.00)
@@ -21,6 +23,9 @@ model Game {
   orderDelay     Int      @default(2)
   shippingDelay  Int      @default(2)
   hostSessionId  String
+  controllerSessionId String?
+  endedAt        DateTime?
+  endedReason    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -29,6 +34,8 @@ model Game {
 
   @@index([accessCode])
   @@index([status])
+  @@index([mode])
+  @@index([endedAt])
 }
 
 model Player {

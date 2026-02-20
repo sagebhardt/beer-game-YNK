@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { generateAccessCode } from "@/lib/access-code";
-import { DEMAND_PRESETS } from "@/lib/types";
+import { DEMAND_PRESETS, GAME_MODES, ROLES, ROLE_LABELS } from "@/lib/types";
+import { initializeGame } from "@/lib/game-engine";
+import { getIO } from "@/lib/socket-server";
+import { emitAdminGameUpsert } from "@/lib/admin-monitor";
 
 export async function POST(request: Request) {
   try {
@@ -12,13 +15,19 @@ export async function POST(request: Request) {
     const {
       name = "",
       totalRounds = 36,
-      demandPreset = "classic",
-      demandPattern: customPattern,
+      mode = "MULTI",
       holdingCost = 0.5,
       backlogCost = 1.0,
       startInventory = 12,
       playerName = "Anfitrión",
     } = body;
+
+    if (!GAME_MODES.includes(mode)) {
+      return NextResponse.json(
+        { error: "Modo de juego inválido" },
+        { status: 400 }
+      );
+    }
 
     // Validate
     if (totalRounds < 4 || totalRounds > 100) {
@@ -28,19 +37,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Determine demand pattern
-    let demandPatternArray: number[];
-    if (customPattern) {
-      if (!Array.isArray(customPattern) || customPattern.some((v: unknown) => typeof v !== "number" || v < 0)) {
-        return NextResponse.json(
-          { error: "Patrón de demanda inválido" },
-          { status: 400 }
-        );
-      }
-      demandPatternArray = customPattern;
-    } else {
-      demandPatternArray = DEMAND_PRESETS[demandPreset]?.pattern ?? DEMAND_PRESETS.classic.pattern;
-    }
+    // Public creation always uses hidden default demand.
+    const demandPresetKey = "classic";
+    const demandPatternArray = [...(DEMAND_PRESETS[demandPresetKey]?.pattern ?? DEMAND_PRESETS.classic.pattern)];
 
     // Ensure demand pattern is at least as long as totalRounds
     while (demandPatternArray.length < totalRounds) {
@@ -53,22 +52,41 @@ export async function POST(request: Request) {
       data: {
         accessCode,
         name,
+        mode,
         totalRounds,
+        demandPresetKey,
         demandPattern: JSON.stringify(demandPatternArray),
         holdingCost,
         backlogCost,
         startInventory,
         hostSessionId: sessionId,
+        controllerSessionId: mode === "TEST" ? sessionId : null,
         players: {
-          create: {
-            name: playerName,
-            sessionId,
-            role: "",
-          },
+          create:
+            mode === "TEST"
+              ? ROLES.map((role) => ({
+                  name: `${playerName} (${ROLE_LABELS[role]})`,
+                  sessionId: `${sessionId}:${role}`,
+                  role,
+                }))
+              : {
+                  name: playerName,
+                  sessionId,
+                  role: "",
+                },
         },
       },
       include: { players: true },
     });
+
+    if (mode === "TEST") {
+      await initializeGame(game.id);
+    }
+
+    const io = getIO();
+    if (io) {
+      await emitAdminGameUpsert(io, accessCode);
+    }
 
     return NextResponse.json({ game });
   } catch (error) {

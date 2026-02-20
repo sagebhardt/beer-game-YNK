@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { getPlayerState, getHostState } from "@/lib/game-engine";
+import { isAdminSession } from "@/lib/admin-auth";
 
 export async function GET(
   _request: Request,
@@ -10,6 +11,7 @@ export async function GET(
   try {
     const { code } = await params;
     const sessionId = await getSessionId();
+    const adminSession = await isAdminSession();
 
     const game = await prisma.game.findUnique({
       where: { accessCode: code },
@@ -33,6 +35,7 @@ export async function GET(
           accessCode: game.accessCode,
           name: game.name,
           status: game.status,
+          mode: game.mode,
           totalRounds: game.totalRounds,
         },
         players: game.players.map((p) => ({
@@ -49,16 +52,35 @@ export async function GET(
     }
 
     // If game is active or completed
-    if (!player) {
+    const isController =
+      game.mode === "TEST" && game.controllerSessionId === sessionId;
+
+    if (!player && !isController) {
       return NextResponse.json(
         { error: "No estás en este juego" },
         { status: 403 }
       );
     }
 
-    if (isHost) {
+    if (isHost || isController) {
       const hostState = await getHostState(game.id);
-      return NextResponse.json({ ...hostState, isHost: true });
+      const { demandPattern: _hiddenPattern, ...safeGame } = hostState.game;
+      const { currentDemand: _hiddenDemand, ...safeHostState } = hostState;
+      if (adminSession) {
+        return NextResponse.json({
+          ...hostState,
+          isHost,
+          isController,
+          isAdmin: true,
+        });
+      }
+
+      return NextResponse.json({
+        ...safeHostState,
+        game: safeGame,
+        isHost,
+        isController,
+      });
     }
 
     const playerState = await getPlayerState(game.id, sessionId);

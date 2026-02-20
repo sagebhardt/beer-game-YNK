@@ -5,6 +5,7 @@ import { processRound } from "@/lib/game-engine";
 import { ROLES, type Role } from "@/lib/types";
 import { getIO } from "@/lib/socket-server";
 import { S2C } from "@/lib/socket-events";
+import { emitAdminGameUpsert } from "@/lib/admin-monitor";
 
 const ROLE_SUBMIT_FIELD: Record<Role, string> = {
   RETAILER: "retailerSubmitted",
@@ -45,6 +46,13 @@ export async function POST(
     if (game.status !== "ACTIVE") {
       return NextResponse.json(
         { error: "El juego no está activo" },
+        { status: 400 }
+      );
+    }
+
+    if (game.mode === "TEST") {
+      return NextResponse.json(
+        { error: "Usa el endpoint de modo Test para procesar esta ronda" },
         { status: 400 }
       );
     }
@@ -102,6 +110,7 @@ export async function POST(
     const io = getIO();
     if (io) {
       io.to(code).emit(S2C.ORDER_SUBMITTED, { role });
+      await emitAdminGameUpsert(io, code);
     }
 
     // Check if all 4 have submitted
@@ -130,6 +139,7 @@ export async function POST(
             round: updatedGame.currentRound,
           });
         }
+        await emitAdminGameUpsert(io, code);
       }
     }
 

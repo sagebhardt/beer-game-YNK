@@ -13,6 +13,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { PageShell } from "@/components/layout/page-shell";
 
 export default function UnirsePage() {
   const router = useRouter();
@@ -57,61 +58,54 @@ export default function UnirsePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
-        >
+    <PageShell
+      title="Unirse a Partida"
+      subtitle="Entra con tu nombre y código para ocupar un rol en la cadena."
+      rightSlot={
+        <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-body)] inline-flex items-center gap-1">
           <ArrowLeft className="w-4 h-4" />
           Volver
         </Link>
+      }
+    >
+      <Card className="mx-auto w-full max-w-lg">
+        <CardHeader>
+          <CardTitle>Acceso a sala</CardTitle>
+          <CardDescription>
+            El código te lo comparte el anfitrión antes de iniciar la simulación.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Tu nombre</label>
+            <Input
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="Ej: María"
+            />
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Unirse a Partida</CardTitle>
-            <CardDescription>
-              Ingresa el código de acceso que te compartió el anfitrión
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tu nombre
-              </label>
-              <Input
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Ej: María"
-              />
-            </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Código de acceso</label>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="BEER-123"
+              className="text-center text-lg font-mono tracking-wider"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Código de acceso
-              </label>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="BEER-123"
-                className="text-center text-lg font-mono tracking-wider"
-              />
-            </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            Tip: verifica mayúsculas y guiones para evitar errores de ingreso.
+          </p>
 
-            {error && (
-              <p className="text-sm text-red-600">{error}</p>
-            )}
+          {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 
-            <Button
-              className="w-full"
-              onClick={handleJoin}
-              disabled={loading}
-            >
-              {loading ? "Uniéndose..." : "Unirse"}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          <Button className="w-full" size="lg" onClick={handleJoin} disabled={loading}>
+            {loading ? "Uniéndose..." : "Entrar a la sala"}
+          </Button>
+        </CardContent>
+      </Card>
+    </PageShell>
   );
 }

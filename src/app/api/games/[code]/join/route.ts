@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
+import { getIO } from "@/lib/socket-server";
+import { emitAdminGameUpsert } from "@/lib/admin-monitor";
 
 export async function POST(
   request: Request,
@@ -38,6 +40,13 @@ export async function POST(
       );
     }
 
+    if (game.mode === "TEST") {
+      return NextResponse.json(
+        { error: "Los juegos en modo Test no admiten participantes" },
+        { status: 400 }
+      );
+    }
+
     // Check if session already in game
     const existingPlayer = game.players.find((p) => p.sessionId === sessionId);
     if (existingPlayer) {
@@ -67,6 +76,11 @@ export async function POST(
         role: "",
       },
     });
+
+    const io = getIO();
+    if (io) {
+      await emitAdminGameUpsert(io, game.accessCode);
+    }
 
     return NextResponse.json({
       player: { id: player.id, name: player.name, role: player.role },

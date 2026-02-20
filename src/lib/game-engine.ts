@@ -298,7 +298,12 @@ export async function processRound(gameId: string, roundNumber: number) {
     if (roundNumber >= game.totalRounds) {
       await tx.game.update({
         where: { id: gameId },
-        data: { status: "COMPLETED", currentRound: roundNumber },
+        data: {
+          status: "COMPLETED",
+          currentRound: roundNumber,
+          endedAt: new Date(),
+          endedReason: "NATURAL",
+        },
       });
     } else {
       await tx.game.update({
@@ -361,6 +366,7 @@ export async function getPlayerState(gameId: string, sessionId: string) {
       accessCode: game.accessCode,
       name: game.name,
       status: game.status,
+      mode: game.mode,
       currentRound,
       totalRounds: game.totalRounds,
     },
@@ -428,11 +434,14 @@ export async function getHostState(gameId: string) {
       accessCode: game.accessCode,
       name: game.name,
       status: game.status,
+      mode: game.mode,
       currentRound: game.currentRound,
       totalRounds: game.totalRounds,
       demandPattern,
       holdingCost: game.holdingCost,
       backlogCost: game.backlogCost,
+      endedAt: game.endedAt?.toISOString() ?? null,
+      endedReason: game.endedReason,
     },
     players: game.players.map((p) => {
       const lastRound = p.roundData[p.roundData.length - 1];

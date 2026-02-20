@@ -5,15 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { Beer, Copy, Check, Users, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/types";
 import { useSocket } from "@/lib/use-socket";
 import { S2C } from "@/lib/socket-events";
+import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
+import { PageShell } from "@/components/layout/page-shell";
 
 interface LobbyPlayer {
   id: string;
@@ -37,12 +34,16 @@ export default function LobbyPage() {
 
   const { socket, isConnected } = useSocket(code, sessionId);
 
-  // Fetch initial state
   const fetchState = useCallback(async () => {
     try {
       const res = await fetch(`/api/games/${code}`);
       const data = await res.json();
       if (!res.ok) return;
+
+      if (data.game?.mode === "TEST") {
+        router.push(`/juego/${code}/test`);
+        return;
+      }
 
       if (data.game?.status === "ACTIVE") {
         router.push(`/juego/${code}/jugar`);
@@ -57,13 +58,17 @@ export default function LobbyPage() {
     }
   }, [code, router]);
 
-  // Get session ID from server and load initial state
   useEffect(() => {
     Promise.all([
       fetch("/api/session").then((r) => r.json()),
       fetch(`/api/games/${code}`).then((r) => r.json()),
     ]).then(([sessionData, gameData]) => {
       if (sessionData.sessionId) setSessionId(sessionData.sessionId);
+
+      if (gameData.game?.mode === "TEST") {
+        router.push(`/juego/${code}/test`);
+        return;
+      }
 
       if (gameData.game?.status === "ACTIVE") {
         router.push(`/juego/${code}/jugar`);
@@ -75,7 +80,6 @@ export default function LobbyPage() {
     });
   }, [code, router]);
 
-  // Socket listeners
   useEffect(() => {
     if (!socket) return;
 
@@ -103,7 +107,6 @@ export default function LobbyPage() {
       ({ playerId, role }: { playerId: string; playerName: string; role: string }) => {
         setPlayers((prev) =>
           prev.map((p) => {
-            // Clear role from any player who had it
             if (p.role === role && p.id !== playerId) return { ...p, role: "" };
             if (p.id === playerId) return { ...p, role };
             return p;
@@ -162,145 +165,120 @@ export default function LobbyPage() {
     players.some((p) => p.role === role)
   );
 
-  const currentPlayerRole = players.find(
-    (p) => p.id === currentPlayerId
-  )?.role;
+  const currentPlayerRole = (players.find((p) => p.id === currentPlayerId)?.role as Role | undefined) ?? null;
+
+  const chainStatuses = Object.fromEntries(
+    ROLES.map((role) => {
+      const assigned = players.find((p) => p.role === role);
+      if (!assigned) return [role, "warn"];
+      return [role, assigned.isConnected ? "ok" : "danger"];
+    })
+  ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>;
+
+  const chainText = Object.fromEntries(
+    ROLES.map((role) => {
+      const assigned = players.find((p) => p.role === role);
+      if (!assigned) return [role, "Sin asignar"];
+      return [role, assigned.name];
+    })
+  ) as Partial<Record<Role, string>>;
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Beer className="w-6 h-6 text-[#2c02c6]" />
-            <h1 className="text-xl font-bold">Sala de Espera</h1>
+    <PageShell
+      title="Sala de Espera"
+      subtitle="Asigna roles y confirma que todos estén listos para iniciar la simulación."
+      rightSlot={
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">Código {code}</Badge>
+          {isConnected ? (
+            <Badge variant="success">Conectado</Badge>
+          ) : (
+            <Badge variant="destructive">Offline</Badge>
+          )}
+          {isHost ? <Badge>Anfitrión</Badge> : null}
+        </div>
+      }
+    >
+      <SupplyChainStrip
+        currentRole={currentPlayerRole}
+        statuses={chainStatuses}
+        statusText={chainText}
+        className="mb-4"
+      />
+
+      <Card className="mb-4">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Código de acceso</p>
+            <p className="text-2xl font-mono font-bold text-[var(--accent)]">{code}</p>
           </div>
-          <div className="flex items-center gap-2">
-            {isConnected ? (
-              <Wifi className="w-4 h-4 text-green-500" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-red-500" />
-            )}
-            {isHost && <Badge>Anfitrión</Badge>}
-          </div>
-        </div>
-
-        {/* Access Code */}
-        <Card className="mb-6">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">
-                  Código de acceso
-                </p>
-                <p className="text-2xl font-mono font-bold tracking-wider text-[#2c02c6]">
-                  {code}
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-                {copied ? "Copiado" : "Copiar"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Role Selection */}
-        <h2 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          Selecciona tu rol
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-          {ROLES.map((role) => {
-            const assignedPlayer = players.find((p) => p.role === role);
-            const isMe = assignedPlayer?.id === currentPlayerId;
-            const isTaken = !!assignedPlayer && !isMe;
-
-            return (
-              <Card
-                key={role}
-                className={`transition-all ${
-                  isMe
-                    ? "border-[#2c02c6] ring-2 ring-[#2c02c6]/20"
-                    : isTaken
-                    ? "opacity-60"
-                    : "hover:border-[#2c02c6]/40 cursor-pointer"
-                }`}
-                onClick={() => !isTaken && handleSelectRole(role)}
-              >
-                <CardHeader className="py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">
-                        {ROLE_LABELS[role]}
-                      </CardTitle>
-                      <p className="text-xs text-gray-400 mt-0.5">{role}</p>
-                    </div>
-                    {assignedPlayer ? (
-                      <Badge variant={isMe ? "default" : "secondary"}>
-                        {assignedPlayer.name}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Disponible</Badge>
-                    )}
-                  </div>
-                </CardHeader>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Chain visualization */}
-        <div className="flex items-center justify-center gap-1 text-xs text-gray-400 mb-6">
-          <span>Consumidor</span>
-          <span>→</span>
-          <span className={currentPlayerRole === "RETAILER" ? "text-[#2c02c6] font-bold" : ""}>
-            Minorista
-          </span>
-          <span>→</span>
-          <span className={currentPlayerRole === "WHOLESALER" ? "text-[#2c02c6] font-bold" : ""}>
-            Mayorista
-          </span>
-          <span>→</span>
-          <span className={currentPlayerRole === "DISTRIBUTOR" ? "text-[#2c02c6] font-bold" : ""}>
-            Distribuidor
-          </span>
-          <span>→</span>
-          <span className={currentPlayerRole === "FACTORY" ? "text-[#2c02c6] font-bold" : ""}>
-            Fábrica
-          </span>
-        </div>
-
-        {error && (
-          <p className="text-sm text-red-600 text-center mb-4">{error}</p>
-        )}
-
-        {/* Start button */}
-        {isHost && (
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleStart}
-            disabled={!allRolesAssigned || starting}
-          >
-            {starting
-              ? "Iniciando..."
-              : allRolesAssigned
-              ? "Iniciar Juego"
-              : "Esperando jugadores..."}
+          <Button variant="outline" onClick={handleCopy}>
+            {copied ? <Check className="w-4 h-4 text-[var(--ok)]" /> : <Copy className="w-4 h-4" />}
+            {copied ? "Copiado" : "Copiar código"}
           </Button>
-        )}
+        </CardContent>
+      </Card>
 
-        {!isHost && (
-          <p className="text-center text-sm text-gray-500">
-            Esperando que el anfitrión inicie el juego...
-          </p>
-        )}
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--text-body)]">
+        <Users className="w-4 h-4" />
+        Selección de roles
+      </h2>
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {ROLES.map((role) => {
+          const assignedPlayer = players.find((p) => p.role === role);
+          const isMe = assignedPlayer?.id === currentPlayerId;
+          const isTaken = !!assignedPlayer && !isMe;
+
+          return (
+            <Card
+              key={role}
+              className={`transition-all ${
+                isMe
+                  ? "border-[#adc7ff] ring-2 ring-[#cadbff]"
+                  : isTaken
+                  ? "opacity-70"
+                  : "cursor-pointer hover:-translate-y-0.5"
+              }`}
+              onClick={() => !isTaken && handleSelectRole(role)}
+            >
+              <CardHeader className="py-4">
+                <CardTitle className="text-base">{ROLE_LABELS[role]}</CardTitle>
+                <p className="text-xs text-[var(--text-muted)]">{assignedPlayer ? assignedPlayer.name : "Disponible"}</p>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {assignedPlayer ? (
+                  <Badge variant={isMe ? "default" : assignedPlayer.isConnected ? "success" : "warning"}>
+                    {isMe ? "Tu rol" : assignedPlayer.isConnected ? "Activo" : "Desconectado"}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Libre</Badge>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-    </div>
+
+      {error ? <p className="mb-4 text-sm text-[var(--danger)]">{error}</p> : null}
+
+      {isHost ? (
+        <Button className="w-full" size="lg" onClick={handleStart} disabled={!allRolesAssigned || starting}>
+          {starting
+            ? "Iniciando..."
+            : allRolesAssigned
+            ? "Iniciar juego"
+            : "Esperando asignación de todos los roles"}
+        </Button>
+      ) : (
+        <div className="rounded-lg border border-[var(--border-soft)] bg-white p-3 text-center text-sm text-[var(--text-muted)]">
+          Esperando que el anfitrión inicie la partida.
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+        <Beer className="w-3.5 h-3.5" />
+        Cada rol solo observa su tramo de la cadena; coordina decisiones sin compartir inventario interno.
+      </div>
+    </PageShell>
   );
 }
