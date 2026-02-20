@@ -26,6 +26,9 @@ RUN mkdir -p public
 # Build Next.js standalone and custom server bundle
 RUN npm run build
 
+# Remove baked .env from standalone (DATABASE_URL is set at runtime via CMD)
+RUN rm -f /app/.next/standalone/.env
+
 # --- prod-deps ---
 FROM deps AS prod-deps
 RUN npm prune --omit=dev
@@ -38,13 +41,16 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy standalone build
+# Copy prod deps FIRST (socket.io, chart.js, etc.)
+COPY --from=prod-deps /app/node_modules ./node_modules
+
+# Copy standalone build ON TOP — its traced node_modules take priority over prod-deps
+# (Next.js traces exact files needed for next, react, @swc, etc.)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy production runtime dependencies
-COPY --from=prod-deps /app/node_modules ./node_modules
+# Overlay Prisma generated client (generated in builder, not in prod-deps)
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy bundled custom server
