@@ -74,26 +74,11 @@ export default function ResultadosPage() {
     fetchResults();
   }, [fetchResults]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-        <p className="text-[var(--danger)]">{error}</p>
-        <Link href="/">
-          <Button variant="outline">Volver al inicio</Button>
-        </Link>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-[var(--text-muted)]">Cargando resultados...</p>
-      </div>
-    );
-  }
-
-  const { game, players = [], optimal } = data;
+  // Derive all computed values — must be above early returns so hook
+  // count stays constant across renders (React rules of hooks).
+  const players = data?.players ?? [];
+  const game = data?.game;
+  const optimal = data?.optimal;
 
   const sortedByCost = [...players]
     .filter((p) => p.roundData && ROLES.includes(p.role as Role))
@@ -106,6 +91,8 @@ export default function ResultadosPage() {
   ).filter((p): p is ResultsPlayer => !!p && Array.isArray(p.roundData));
 
   const summary = useMemo(() => {
+    if (orderedPlayers.length === 0) return { mostVariable: undefined, biggestBacklog: undefined };
+
     const roleVariability = orderedPlayers.map((player) => {
       const orders = (player.roundData ?? []).map((r) => r.orderPlaced);
       return {
@@ -126,6 +113,27 @@ export default function ResultadosPage() {
       biggestBacklog,
     };
   }, [orderedPlayers]);
+
+  // --- Early returns (after all hooks) ---
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
+        <p className="text-[var(--danger)]">{error}</p>
+        <Link href="/">
+          <Button variant="outline">Volver al inicio</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (!data || !game) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-[var(--text-muted)]">Cargando resultados...</p>
+      </div>
+    );
+  }
 
   return (
     <PageShell
