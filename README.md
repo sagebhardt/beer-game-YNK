@@ -81,8 +81,8 @@ Ver [DEPLOYMENT.md](DEPLOYMENT.md) para instrucciones detalladas.
 
 Resumen rápido:
 1. Conectar repo en Railway
-2. Crear Volume (1GB) montado en `/data`
-3. Configurar `DATABASE_URL=file:/app/data/prod.db`
+2. Crear Volume (1GB) montado en `/app/data`
+3. Configurar `DATA_DIR=/app/data` y dejar `Start Command` vacío en Railway (usar `CMD` del Dockerfile)
 4. Deploy automático desde Dockerfile
 
 ## Estructura del proyecto

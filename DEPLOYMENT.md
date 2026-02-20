@@ -20,7 +20,7 @@ Sin volumen, la base de datos se pierde cada deploy.
 
 1. En el dashboard del servicio, ir a **Settings** → **Volumes**
 2. Click **"Add Volume"**
-3. **Mount Path**: `/data`
+3. **Mount Path**: `/app/data`
 4. **Size**: 1 GB (más que suficiente)
 
 ### 3. Configurar variables de entorno
@@ -28,18 +28,19 @@ Sin volumen, la base de datos se pierde cada deploy.
 En el servicio, ir a **Variables** y agregar:
 
 ```
-DATABASE_URL=file:/app/data/prod.db
-PORT=3000
 NODE_ENV=production
+DATA_DIR=/app/data
 ```
+
+No definir `Start Command` manual en Railway. Déjalo vacío para que use el `CMD` del `Dockerfile`.
 
 ### 4. Deploy
 
 Railway hace deploy automático al detectar el Dockerfile. El proceso:
 
 1. **Build**: Multi-stage Docker build (deps → build → runner)
-2. **DB Init**: Al iniciar, el container copia `template.db` a `/data/prod.db` si no existe
-3. **Server**: Ejecuta `node server.js` (Next.js + Socket.io)
+2. **DB Init**: Al iniciar, el container copia `template.db` a `/app/data/prod.db` si no existe
+3. **Server**: Ejecuta `node custom-server.js` (Next.js + Socket.io)
 
 ### 5. Verificar
 
@@ -65,8 +66,8 @@ CMD ["sh", "-c", "SCHEMA_V=2; if [ ! -f ..."]
 ## Troubleshooting
 
 ### La base de datos se pierde en cada deploy
-- Verificar que el volumen está montado en `/data`
-- Verificar que `DATABASE_URL=file:/app/data/prod.db`
+- Verificar que el volumen está montado en `/app/data`
+- Verificar que `DATA_DIR=/app/data`
 
 ### Socket.io no conecta
 - Railway usa HTTPS por defecto, Socket.io debería funcionar
@@ -84,8 +85,8 @@ Dockerfile (multi-stage)
 ├── deps      → npm ci
 ├── builder   → prisma generate, db push (template), next build
 └── runner    → standalone output + socket.io + template.db
-                CMD: copy template.db → /data/prod.db (si no existe)
-                     node server.js
+                CMD: copy template.db → /app/data/prod.db (si no existe)
+                     node custom-server.js
 ```
 
 ## Custom domain (opcional)

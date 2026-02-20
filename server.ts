@@ -27,8 +27,22 @@ app.prepare().then(() => {
   setupSocketHandlers(io);
 
   const port = parseInt(process.env.PORT || "3000", 10);
-  const hostname = process.env.HOSTNAME || "0.0.0.0";
-  httpServer.listen(port, hostname, () => {
-    console.log(`> Beer Game listo en http://${hostname}:${port}`);
+  const bindHost = "0.0.0.0";
+
+  console.log(`[boot] NODE_ENV=${process.env.NODE_ENV || "undefined"}`);
+  console.log(`[boot] PORT=${port}`);
+  console.log(`[boot] BIND_HOST=${bindHost}`);
+  console.log(`[boot] DATA_DIR=${process.env.DATA_DIR || "/app/data"}`);
+
+  httpServer.on("error", (error) => {
+    console.error("[boot] HTTP server failed to start:", error);
+    process.exit(1);
   });
+
+  httpServer.listen(port, bindHost, () => {
+    console.log(`> Beer Game listo en http://${bindHost}:${port}`);
+  });
+}).catch((error) => {
+  console.error("[boot] Next.js app preparation failed:", error);
+  process.exit(1);
 });
