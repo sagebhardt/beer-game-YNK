@@ -136,19 +136,24 @@ export async function POST(
 
     const io = getIO();
     if (io) {
-      for (const role of ROLES) {
-        io.to(code).emit(S2C.ORDER_SUBMITTED, { role });
-      }
-
       if (updatedGame.status === "COMPLETED") {
+        // Skip ORDER_SUBMITTED — go straight to GAME_ENDED to avoid
+        // race conditions where clients refetch state mid-transition
         io.to(code).emit(S2C.GAME_ENDED, {});
       } else {
+        for (const role of ROLES) {
+          io.to(code).emit(S2C.ORDER_SUBMITTED, { role });
+        }
         io.to(code).emit(S2C.ROUND_ADVANCED, {
           round: updatedGame.currentRound,
         });
       }
 
-      await emitAdminGameUpsert(io, code);
+      try {
+        await emitAdminGameUpsert(io, code);
+      } catch (e) {
+        console.error("Error emitting admin upsert:", e);
+      }
     }
 
     return NextResponse.json({

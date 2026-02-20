@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionIdReadonly } from "@/lib/session";
 import { getHostState } from "@/lib/game-engine";
+import { computeOptimalCosts } from "@/lib/optimal-cost";
 
 export async function GET(
   _request: Request,
@@ -41,12 +42,29 @@ export async function GET(
 
     const state = await getHostState(game.id);
 
+    // Compute optimal (perfect-information) costs
+    const demandPattern: number[] = JSON.parse(game.demandPattern);
+    const optimal = computeOptimalCosts({
+      demandPattern,
+      totalRounds: game.totalRounds,
+      startInventory: game.startInventory,
+      holdingCost: game.holdingCost,
+      backlogCost: game.backlogCost,
+      orderDelay: game.orderDelay,
+      shippingDelay: game.shippingDelay,
+    });
+
     return NextResponse.json({
       ...state,
       game: {
         ...state.game,
         endedReason: game.endedReason,
         endedAt: game.endedAt?.toISOString() ?? null,
+      },
+      optimal: {
+        perRole: optimal.perRole,
+        perRoleTotalCost: optimal.perRoleTotalCost,
+        totalChainCost: optimal.totalChainCost,
       },
     });
   } catch (error) {

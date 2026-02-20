@@ -19,7 +19,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { ROLE_LABELS, type Role } from "@/lib/types";
+import { ROLES, ROLE_LABELS, type Role } from "@/lib/types";
 
 ChartJS.register(
   CategoryScale,
@@ -52,16 +52,34 @@ interface ResultsPlayer {
   }>;
 }
 
+export interface OptimalData {
+  perRole: Record<string, Array<{
+    round: number;
+    orderPlaced: number;
+    inventoryAfter: number;
+    backlogAfter: number;
+    totalCostCumulative: number;
+  }>>;
+  perRoleTotalCost: Record<string, number>;
+  totalChainCost: number;
+}
+
 interface Props {
   players: ResultsPlayer[];
   demandPattern: number[];
   totalRounds: number;
+  optimal?: OptimalData;
 }
 
-export function ResultsCharts({ players, demandPattern, totalRounds }: Props) {
+export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: Props) {
   const rounds = Array.from({ length: totalRounds }, (_, i) => i + 1);
 
+  // Helper: get optimal round data for a role
+  const getOptimalRound = (role: string, round: number) =>
+    optimal?.perRole[role]?.find((d) => d.round === round);
+
   // Bullwhip Chart: Orders placed by each role vs consumer demand
+  // Optimal line = demand (all roles order exactly the demand)
   const bullwhipData = {
     labels: rounds.map((r) => `${r}`),
     datasets: [
@@ -85,42 +103,93 @@ export function ResultsCharts({ players, demandPattern, totalRounds }: Props) {
         pointRadius: 1,
         tension: 0.2,
       })),
+      // Optimal order line (same for all roles = demand)
+      ...(optimal
+        ? [
+            {
+              label: "Pedido óptimo",
+              data: rounds.map((r) => getOptimalRound("RETAILER", r)?.orderPlaced ?? null),
+              borderColor: "#10b981",
+              borderDash: [8, 4],
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.1,
+            },
+          ]
+        : []),
     ],
   };
 
-  // Inventory Chart
+  // Inventory Chart — add optimal inventory per role
   const inventoryData = {
     labels: rounds.map((r) => `${r}`),
-    datasets: players.map((player) => ({
-      label: ROLE_LABELS[player.role as Role] || player.role,
-      data: rounds.map((r) => {
-        const rd = player.roundData.find((d) => d.round === r);
-        if (!rd) return null;
-        return rd.inventoryAfter > 0
-          ? rd.inventoryAfter
-          : -rd.backlogAfter;
-      }),
-      borderColor: ROLE_COLORS[player.role] || "#6b7280",
-      borderWidth: 2,
-      pointRadius: 1,
-      tension: 0.2,
-    })),
+    datasets: [
+      ...players.map((player) => ({
+        label: ROLE_LABELS[player.role as Role] || player.role,
+        data: rounds.map((r) => {
+          const rd = player.roundData.find((d) => d.round === r);
+          if (!rd) return null;
+          return rd.inventoryAfter > 0
+            ? rd.inventoryAfter
+            : -rd.backlogAfter;
+        }),
+        borderColor: ROLE_COLORS[player.role] || "#6b7280",
+        borderWidth: 2,
+        pointRadius: 1,
+        tension: 0.2,
+      })),
+      // Optimal inventory lines per role
+      ...(optimal
+        ? ROLES.map((role) => ({
+            label: `${ROLE_LABELS[role]} óptimo`,
+            data: rounds.map((r) => {
+              const ord = getOptimalRound(role, r);
+              if (!ord) return null;
+              return ord.inventoryAfter > 0
+                ? ord.inventoryAfter
+                : -ord.backlogAfter;
+            }),
+            borderColor: ROLE_COLORS[role] || "#6b7280",
+            borderDash: [8, 4] as number[],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.2,
+          }))
+        : []),
+    ],
   };
 
-  // Cost Chart
+  // Cost Chart — add optimal cost line per role
   const costData = {
     labels: rounds.map((r) => `${r}`),
-    datasets: players.map((player) => ({
-      label: ROLE_LABELS[player.role as Role] || player.role,
-      data: rounds.map((r) => {
-        const rd = player.roundData.find((d) => d.round === r);
-        return rd?.totalCostCumulative ?? null;
-      }),
-      borderColor: ROLE_COLORS[player.role] || "#6b7280",
-      borderWidth: 2,
-      pointRadius: 1,
-      tension: 0.2,
-    })),
+    datasets: [
+      ...players.map((player) => ({
+        label: ROLE_LABELS[player.role as Role] || player.role,
+        data: rounds.map((r) => {
+          const rd = player.roundData.find((d) => d.round === r);
+          return rd?.totalCostCumulative ?? null;
+        }),
+        borderColor: ROLE_COLORS[player.role] || "#6b7280",
+        borderWidth: 2,
+        pointRadius: 1,
+        tension: 0.2,
+      })),
+      // Optimal cost lines per role
+      ...(optimal
+        ? ROLES.map((role) => ({
+            label: `${ROLE_LABELS[role]} óptimo`,
+            data: rounds.map((r) => {
+              const ord = getOptimalRound(role, r);
+              return ord?.totalCostCumulative ?? null;
+            }),
+            borderColor: ROLE_COLORS[role] || "#6b7280",
+            borderDash: [8, 4] as number[],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.2,
+          }))
+        : []),
+    ],
   };
 
   const commonOptions = {
