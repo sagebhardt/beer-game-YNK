@@ -72,6 +72,14 @@ interface Props {
 }
 
 export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: Props) {
+  if (players.length === 0 || totalRounds === 0) {
+    return (
+      <div className="rounded-xl border border-[var(--border-soft)] p-6 text-center text-sm text-[var(--text-muted)]">
+        No hay datos suficientes para generar gráficos.
+      </div>
+    );
+  }
+
   const rounds = Array.from({ length: totalRounds }, (_, i) => i + 1);
 
   // Helper: get optimal round data for a role
