@@ -54,20 +54,36 @@ export default function ResultadosPage() {
   const params = useParams();
   const code = params.code as string;
   const [data, setData] = useState<ResultsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchResults = useCallback(async () => {
     try {
       const res = await fetch(`/api/games/${code}/results`);
       const json = await res.json();
-      if (res.ok) setData(json);
+      if (res.ok) {
+        setData(json);
+      } else {
+        setError(json.error || "Error al cargar resultados");
+      }
     } catch {
-      // ignore
+      setError("Error de conexión al cargar resultados");
     }
   }, [code]);
 
   useEffect(() => {
     fetchResults();
   }, [fetchResults]);
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
+        <p className="text-[var(--danger)]">{error}</p>
+        <Link href="/">
+          <Button variant="outline">Volver al inicio</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!data) {
     return (
@@ -141,7 +157,7 @@ export default function ResultadosPage() {
             <p className="kpi-value mt-1 text-2xl font-bold text-emerald-600">
               {optimal ? formatCurrency(optimal.totalChainCost) : "–"}
             </p>
-            {optimal && optimal.totalChainCost > 0 && (
+            {optimal && optimal.totalChainCost > 0 && Number.isFinite(totalChainCost / optimal.totalChainCost) && (
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                 {((totalChainCost / optimal.totalChainCost - 1) * 100).toFixed(0)}% por encima del óptimo
               </p>

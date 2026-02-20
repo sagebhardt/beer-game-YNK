@@ -42,17 +42,33 @@ export async function GET(
 
     const state = await getHostState(game.id);
 
-    // Compute optimal (perfect-information) costs
-    const demandPattern: number[] = JSON.parse(game.demandPattern);
-    const optimal = computeOptimalCosts({
-      demandPattern,
-      totalRounds: game.totalRounds,
-      startInventory: game.startInventory,
-      holdingCost: game.holdingCost,
-      backlogCost: game.backlogCost,
-      orderDelay: game.orderDelay,
-      shippingDelay: game.shippingDelay,
-    });
+    // Compute optimal (perfect-information) costs — wrapped in try-catch
+    // so the results page still works even if computation fails
+    let optimalPayload: {
+      perRole: Record<string, unknown[]>;
+      perRoleTotalCost: Record<string, number>;
+      totalChainCost: number;
+    } | null = null;
+
+    try {
+      const demandPattern: number[] = JSON.parse(game.demandPattern);
+      const optimal = computeOptimalCosts({
+        demandPattern,
+        totalRounds: game.totalRounds,
+        startInventory: game.startInventory,
+        holdingCost: game.holdingCost,
+        backlogCost: game.backlogCost,
+        orderDelay: game.orderDelay,
+        shippingDelay: game.shippingDelay,
+      });
+      optimalPayload = {
+        perRole: optimal.perRole,
+        perRoleTotalCost: optimal.perRoleTotalCost,
+        totalChainCost: optimal.totalChainCost,
+      };
+    } catch (e) {
+      console.error("Error computing optimal costs:", e);
+    }
 
     return NextResponse.json({
       ...state,
@@ -61,11 +77,7 @@ export async function GET(
         endedReason: game.endedReason,
         endedAt: game.endedAt?.toISOString() ?? null,
       },
-      optimal: {
-        perRole: optimal.perRole,
-        perRoleTotalCost: optimal.perRoleTotalCost,
-        totalChainCost: optimal.totalChainCost,
-      },
+      ...(optimalPayload ? { optimal: optimalPayload } : {}),
     });
   } catch (error) {
     console.error("Error al obtener resultados:", error);
