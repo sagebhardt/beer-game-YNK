@@ -1,11 +1,32 @@
 import { createServer } from "http";
 import { parse } from "url";
+import { readFileSync } from "fs";
+import { join } from "path";
 import next from "next";
 import { Server as SocketIOServer } from "socket.io";
 import { setupSocketHandlers } from "./src/lib/socket-handlers";
 
 const dev = process.env.NODE_ENV !== "production";
-const app = next({ dev });
+const dir = process.cwd();
+
+// In standalone mode, Next.js needs the embedded config to find routes/manifests.
+// The auto-generated server.js sets __NEXT_PRIVATE_STANDALONE_CONFIG inline;
+// since we use a custom server, we must load it ourselves.
+if (!dev) {
+  try {
+    const requiredServerFiles = JSON.parse(
+      readFileSync(join(dir, ".next", "required-server-files.json"), "utf8")
+    );
+    process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(
+      requiredServerFiles.config
+    );
+    console.log("[boot] Loaded standalone config from required-server-files.json");
+  } catch (e) {
+    console.warn("[boot] Could not load required-server-files.json:", e);
+  }
+}
+
+const app = next({ dev, dir });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
