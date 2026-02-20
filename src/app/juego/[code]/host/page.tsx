@@ -29,11 +29,13 @@ interface HostStateData {
     accessCode: string;
     name: string;
     status: string;
+    mode: string;
     currentRound: number;
     totalRounds: number;
-    demandPattern: number[];
     holdingCost: number;
     backlogCost: number;
+    endedAt: string | null;
+    endedReason: string | null;
   };
   players: Array<{
     id: string;
@@ -70,7 +72,6 @@ interface HostStateData {
     distributor: boolean;
     factory: boolean;
   } | null;
-  currentDemand: number;
   isHost: boolean;
 }
 
@@ -89,6 +90,11 @@ export default function HostPage() {
       const res = await fetch(`/api/games/${code}`);
       const data = await res.json();
       if (!res.ok) return;
+
+      if (data.game?.mode === "TEST") {
+        router.push(`/juego/${code}/test`);
+        return;
+      }
 
       if (data.game?.status === "COMPLETED") {
         router.push(`/juego/${code}/resultados`);
@@ -138,7 +144,7 @@ export default function HostPage() {
     );
   }
 
-  const { game, players, submissions, currentDemand, pipeline } = state;
+  const { game, players, submissions, pipeline } = state;
 
   // Sort players by chain order
   const orderedPlayers = ROLES.map((role) =>
@@ -174,25 +180,9 @@ export default function HostPage() {
           </div>
         </div>
 
-        {/* Consumer demand */}
-        <div className="bg-amber-50 rounded-lg p-3 mb-4 flex items-center justify-between">
-          <span className="text-sm text-amber-700">
-            Demanda del consumidor esta ronda
-          </span>
-          <span className="text-lg font-bold text-amber-800">
-            {currentDemand} unidades
-          </span>
-        </div>
-
         {/* Supply Chain Overview */}
         <div className="flex items-center justify-center gap-2 mb-6 overflow-x-auto py-2">
-          <div className="text-center flex-shrink-0">
-            <div className="bg-amber-100 rounded-lg px-3 py-2">
-              <p className="text-xs text-amber-600">Consumidor</p>
-              <p className="text-sm font-bold">{currentDemand}/sem</p>
-            </div>
-          </div>
-          {orderedPlayers.map((player, i) => {
+          {orderedPlayers.map((player) => {
             if (!player) return null;
             const role = player.role as Role;
             const submitted = submissions

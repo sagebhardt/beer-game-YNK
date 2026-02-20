@@ -30,6 +30,7 @@ En el servicio, ir a **Variables** y agregar:
 ```
 NODE_ENV=production
 DATA_DIR=/app/data
+ADMIN_PANEL_KEY=tu-clave-admin-segura
 ```
 
 No definir `Start Command` manual en Railway. Déjalo vacío para que use el `CMD` del `Dockerfile`.
@@ -53,7 +54,7 @@ Railway hace deploy automático al detectar el Dockerfile. El proceso:
 SQLite no soporta `ALTER COLUMN`. Cuando cambies el schema de Prisma:
 
 1. Editar `prisma/schema.prisma`
-2. Incrementar `SCHEMA_V` en la línea `CMD` del `Dockerfile` (ej: `SCHEMA_V=1` → `SCHEMA_V=2`)
+2. Incrementar `SCHEMA_V` en la línea `CMD` del `Dockerfile` (ej: `SCHEMA_V=2` → `SCHEMA_V=3`)
 3. Push a main → Railway redeploy
 4. **IMPORTANTE**: Esto borra y recrea la base de datos. Todos los juegos existentes se pierden.
 

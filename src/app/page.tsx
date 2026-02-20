@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Beer, Plus, Users } from "lucide-react";
+import { Beer, Plus, Users, Shield } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -23,7 +23,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Link href="/crear">
             <Card className="hover:border-[#2c02c6]/40 hover:shadow-md transition-all cursor-pointer h-full">
               <CardHeader>
@@ -55,6 +55,25 @@ export default function HomePage() {
               <CardContent>
                 <Button variant="outline" className="w-full">
                   Unirse
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin">
+            <Card className="hover:border-[#2c02c6]/40 hover:shadow-md transition-all cursor-pointer h-full">
+              <CardHeader>
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#2c02c6]/10 mb-2">
+                  <Shield className="w-5 h-5 text-[#2c02c6]" />
+                </div>
+                <CardTitle>Panel Admin</CardTitle>
+                <CardDescription>
+                  Monitorea partidas en vivo, analytics y exportación
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full">
+                  Administrar
                 </Button>
               </CardContent>
             </Card>

@@ -52,7 +52,7 @@ export default function ResultadosPage() {
 
   const fetchResults = useCallback(async () => {
     try {
-      const res = await fetch(`/api/games/${code}`);
+      const res = await fetch(`/api/games/${code}/results`);
       const json = await res.json();
       if (res.ok) setData(json);
     } catch {

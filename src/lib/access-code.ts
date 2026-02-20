@@ -5,7 +5,7 @@ export async function generateAccessCode(): Promise<string> {
     const num = Math.floor(Math.random() * 900) + 100; // 100-999
     const code = `BEER-${num}`;
     const existing = await prisma.game.findFirst({
-      where: { accessCode: code, status: { in: ["LOBBY", "ACTIVE"] } },
+      where: { accessCode: code },
     });
     if (!existing) return code;
   }

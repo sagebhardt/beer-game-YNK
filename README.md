@@ -1,10 +1,16 @@
 # Beer Game YNK
 
-Simulación web multijugador del **Beer Distribution Game** — un modelo clásico de cadena de suministro que demuestra el **Efecto Látigo (Bullwhip Effect)** a través de retrasos temporales e información limitada.
+Simulación web del **Beer Distribution Game** en dos modos:
+- **Multijugador** (4 participantes)
+- **Test** (1 participante controlando los 4 roles)
+
+Incluye panel de administración para monitoreo en tiempo real, analytics y exportación CSV/Excel.
 
 ## Descripción
 
-Cuatro jugadores (Minorista, Mayorista, Distribuidor y Fábrica) gestionan inventario y pedidos por turnos. El objetivo es minimizar el costo total de la cadena mientras enfrentan retrasos de 4 semanas entre pedidos y entregas.
+Cuatro roles (Minorista, Mayorista, Distribuidor y Fábrica) gestionan inventario y pedidos por turnos. El objetivo es minimizar el costo total de la cadena mientras enfrentan retrasos de 4 semanas entre pedidos y entregas.
+
+En modo **Test**, una sola persona toma las decisiones de los cuatro roles en una vista por columnas.
 
 ## Stack
 
@@ -38,6 +44,7 @@ npm install
 
 # Configurar base de datos
 echo 'DATABASE_URL="file:./dev.db"' > .env
+echo 'ADMIN_PANEL_KEY="cambia-esta-clave"' >> .env
 npx prisma db push
 
 # Correr en desarrollo (con Socket.io)
@@ -66,14 +73,27 @@ npx prisma db push   # Aplicar schema a la DB local
 | Pico | Pico a 16 en semana 5, luego vuelve a 4 |
 | Estacional | Oscila entre 2 y 10 |
 
+La demanda no se configura en la creación pública del juego. Se gestiona desde `/admin` y solo mientras la partida esté en `LOBBY`.
+
 ## Flujo del juego
 
-1. **Anfitrión crea partida** → recibe código de acceso (ej: `BEER-123`)
-2. **Jugadores se unen** con código + nombre → seleccionan rol en el lobby
-3. **Anfitrión inicia** cuando los 4 roles están asignados
-4. **Cada ronda**: jugadores ven pedidos entrantes, inventario, backlog → envían pedido
-5. **Ronda avanza** automáticamente cuando los 4 envían → pipeline se actualiza
-6. **Fin del juego** → gráficos de análisis (Bullwhip, inventario, costos)
+1. **Creación de partida** en modo multijugador o test
+2. **Multijugador**: participantes se unen por código, seleccionan rol y el anfitrión inicia
+3. **Test**: el juego inicia automáticamente y un solo usuario carga pedidos para los 4 roles
+4. **Cada ronda**: se procesan pedidos, envíos, inventario y backlog
+5. **Fin del juego**: resultados y gráficos (Bullwhip, inventario, costos)
+
+## Panel admin
+
+Ruta: `/admin`
+
+Funciones principales:
+- Login por clave (`ADMIN_PANEL_KEY`)
+- Listado en vivo de juegos `LOBBY`, `ACTIVE` y `COMPLETED`
+- Acciones: `Cerrar`, `Terminar`, `Eliminar`
+- Edición de demanda por preset (solo en `LOBBY`)
+- Analytics por juego y agregados históricos
+- Exportación de datos en CSV y Excel (`.xlsx`)
 
 ## Deployment en Railway
 
@@ -95,13 +115,16 @@ Resumen rápido:
 │   │   ├── page.tsx            # Landing: Crear / Unirse
 │   │   ├── crear/              # Crear partida
 │   │   ├── unirse/             # Unirse a partida
+│   │   ├── admin/              # Panel admin + detalle por juego
 │   │   ├── juego/[code]/
 │   │   │   ├── lobby/          # Sala de espera + selección de rol
 │   │   │   ├── jugar/          # Tablero del jugador
+│   │   │   ├── test/           # Modo test (4 columnas, 1 persona)
 │   │   │   ├── host/           # Vista del anfitrión
 │   │   │   └── resultados/     # Gráficos post-juego
 │   │   └── api/
-│   │       ├── games/          # CRUD de partidas
+│   │       ├── games/          # Juego normal + test + resultados
+│   │       ├── admin/          # Auth, gestión, analytics, export
 │   │       └── session/        # Obtener session ID
 │   ├── components/
 │   │   ├── ui/                 # Button, Card, Input, Select, Badge
