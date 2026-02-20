@@ -1,11 +1,11 @@
-# Beer Game YNK — Multi-stage Docker build
+# Beer Game YNK - Multi-stage Docker build
 FROM node:22-alpine AS base
 
 # --- deps ---
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit
 
 # --- builder ---
 FROM base AS builder
@@ -23,12 +23,12 @@ RUN DATABASE_URL="file:/app/temp.db" npx prisma db push --skip-generate && \
 # Ensure public dir exists (Next.js standalone expects it)
 RUN mkdir -p public
 
-# Build Next.js (standalone output)
+# Build Next.js standalone and custom server bundle
 RUN npm run build
 
-# Bundle custom server (Socket.io + Next.js wrapper) from TypeScript
-RUN npx esbuild server.ts --bundle --platform=node --target=node22 --outfile=custom-server.js \
-    --external:next --external:socket.io --external:@prisma/client
+# --- prod-deps ---
+FROM deps AS prod-deps
+RUN npm prune --omit=dev
 
 # --- runner ---
 FROM base AS runner
@@ -43,12 +43,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy all node_modules (Prisma, socket.io, and all transitive deps)
-# Using full copy instead of cherry-picking to avoid missing transitive dependencies
-COPY --from=deps /app/node_modules ./node_modules
+# Copy production runtime dependencies
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Copy bundled custom server (Socket.io + Next.js)
+# Copy bundled custom server
 COPY --from=builder --chown=nextjs:nodejs /app/custom-server.js ./custom-server.js
 
 # Copy template database
@@ -60,6 +59,7 @@ RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV DATA_DIR="/app/data"
 
 # Database initialization + start
-CMD ["sh", "-c", "SCHEMA_V=1; if [ ! -f /app/data/prod.db ] || [ ! -f /app/data/.schema-v$SCHEMA_V ]; then cp /app/template.db /app/data/prod.db; touch /app/data/.schema-v$SCHEMA_V; echo 'DB initialized (schema v'$SCHEMA_V')'; fi && DATABASE_URL='file:/app/data/prod.db' node custom-server.js"]
+CMD ["sh", "-c", "SCHEMA_V=1; DATA_DIR=${DATA_DIR:-/app/data}; mkdir -p \"$DATA_DIR\"; if [ ! -f \"$DATA_DIR/prod.db\" ] || [ ! -f \"$DATA_DIR/.schema-v$SCHEMA_V\" ]; then cp /app/template.db \"$DATA_DIR/prod.db\"; touch \"$DATA_DIR/.schema-v$SCHEMA_V\"; echo 'DB initialized (schema v'$SCHEMA_V')'; fi && DATABASE_URL=\"file:$DATA_DIR/prod.db\" node custom-server.js"]
