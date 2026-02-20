@@ -27,11 +27,11 @@ app.prepare().then(() => {
   setupSocketHandlers(io);
 
   const port = parseInt(process.env.PORT || "3000", 10);
-  const bindHost = "0.0.0.0";
+  const bindMode = "default (all interfaces)";
 
   console.log(`[boot] NODE_ENV=${process.env.NODE_ENV || "undefined"}`);
   console.log(`[boot] PORT=${port}`);
-  console.log(`[boot] BIND_HOST=${bindHost}`);
+  console.log(`[boot] BIND_MODE=${bindMode}`);
   console.log(`[boot] DATA_DIR=${process.env.DATA_DIR || "/app/data"}`);
 
   httpServer.on("error", (error) => {
@@ -39,8 +39,13 @@ app.prepare().then(() => {
     process.exit(1);
   });
 
-  httpServer.listen(port, bindHost, () => {
-    console.log(`> Beer Game listo en http://${bindHost}:${port}`);
+  httpServer.listen(port, () => {
+    const address = httpServer.address();
+    const printable =
+      typeof address === "string"
+        ? address
+        : `${address?.address ?? "unknown"}:${address?.port ?? port}`;
+    console.log(`> Beer Game listo en ${printable}`);
   });
 }).catch((error) => {
   console.error("[boot] Next.js app preparation failed:", error);

@@ -57,9 +57,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/temp.db /app/template.db
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 ENV DATA_DIR="/app/data"
 
 # Database initialization + start
-CMD ["sh", "-c", "SCHEMA_V=1; DATA_DIR=${DATA_DIR:-/app/data}; mkdir -p \"$DATA_DIR\"; if [ ! -f \"$DATA_DIR/prod.db\" ] || [ ! -f \"$DATA_DIR/.schema-v$SCHEMA_V\" ]; then cp /app/template.db \"$DATA_DIR/prod.db\"; touch \"$DATA_DIR/.schema-v$SCHEMA_V\"; echo 'DB initialized (schema v'$SCHEMA_V')'; fi && DATABASE_URL=\"file:$DATA_DIR/prod.db\" node custom-server.js"]
+CMD ["sh", "-c", "SCHEMA_V=1; DATA_DIR=${DATA_DIR:-/app/data}; PORT=${PORT:-3000}; mkdir -p \"$DATA_DIR\"; if [ ! -f \"$DATA_DIR/prod.db\" ] || [ ! -f \"$DATA_DIR/.schema-v$SCHEMA_V\" ]; then cp /app/template.db \"$DATA_DIR/prod.db\"; touch \"$DATA_DIR/.schema-v$SCHEMA_V\"; echo 'DB initialized (schema v'$SCHEMA_V')'; fi; echo \"[boot] Effective PORT=$PORT DATA_DIR=$DATA_DIR\"; DATABASE_URL=\"file:$DATA_DIR/prod.db\" PORT=\"$PORT\" node custom-server.js"]
