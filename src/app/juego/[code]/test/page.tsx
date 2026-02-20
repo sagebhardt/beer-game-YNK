@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Beer, Check, Clock, Send, Wifi, WifiOff } from "lucide-react";
+import { Beer, Check, Clock, Flag, Send, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,6 +151,13 @@ export default function TestPage() {
         return;
       }
 
+      // If game just completed, redirect to results directly
+      // (don't race with the GAME_ENDED socket handler)
+      if (data.status === "COMPLETED") {
+        router.push(`/juego/${code}/resultados`);
+        return;
+      }
+
       await fetchState();
     } catch {
       setError("Error de conexión");
@@ -184,6 +191,8 @@ export default function TestPage() {
       return [role, submitted ? "Pedido definido" : "Pendiente"];
     })
   ) as Partial<Record<Role, string>>;
+
+  const isLastRound = state.game.currentRound >= state.game.totalRounds;
 
   return (
     <PageShell
@@ -256,13 +265,20 @@ export default function TestPage() {
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      {isLastRound && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm text-amber-800">
+          <Flag className="mr-1 inline h-3.5 w-3.5" />
+          Esta es la última ronda. Al procesarla, el juego finalizará y verás los resultados.
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-[var(--text-muted)]">
           Define los pedidos de los 4 roles y procesa la semana completa.
         </p>
         <Button onClick={processRound} disabled={loading}>
-          <Send className="w-4 h-4" />
-          {loading ? "Procesando..." : "Procesar ronda"}
+          {isLastRound ? <Flag className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+          {loading ? "Procesando..." : isLastRound ? "Finalizar juego" : "Procesar ronda"}
         </Button>
       </div>
 
