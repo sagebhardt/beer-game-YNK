@@ -1,3 +1,4 @@
+# Beer Game YNK — Multi-stage Docker build
 FROM node:22-alpine AS base
 
 # --- deps ---
