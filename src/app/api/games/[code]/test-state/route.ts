@@ -33,6 +33,16 @@ export async function GET(
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    // If game already completed, return minimal payload so the test page
+    // redirects to results (it checks game.status === "COMPLETED")
+    if (game.status === "COMPLETED") {
+      return NextResponse.json({
+        game: { status: "COMPLETED", accessCode: code },
+        players: [],
+        submissions: null,
+      });
+    }
+
     const state = await getHostState(game.id);
     const { demandPattern: _hiddenPattern, ...safeGame } = state.game;
 

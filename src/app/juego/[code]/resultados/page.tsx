@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Beer, Trophy, ArrowLeft, Activity, TrendingUp, AlertTriangle } from "lucide-react";
+import { Trophy, ArrowLeft, Activity, TrendingUp, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
-import { ResultsCharts } from "@/components/game/results-charts";
+import { ResultsCharts, type OptimalData } from "@/components/game/results-charts";
 import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
 import { PageShell } from "@/components/layout/page-shell";
 
@@ -40,6 +40,7 @@ interface ResultsData {
     demandPattern: number[];
   };
   players: ResultsPlayer[];
+  optimal?: OptimalData;
 }
 
 function stdDev(values: number[]) {
@@ -76,7 +77,7 @@ export default function ResultadosPage() {
     );
   }
 
-  const { game, players } = data;
+  const { game, players, optimal } = data;
 
   const sortedByCost = [...players]
     .filter((p) => ROLES.includes(p.role as Role))
@@ -127,11 +128,24 @@ export default function ResultadosPage() {
         </div>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
         <Card>
           <CardContent className="py-4">
             <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Costo total cadena</p>
             <p className="kpi-value mt-1 text-2xl font-bold text-[var(--accent)]">{formatCurrency(totalChainCost)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Costo óptimo cadena</p>
+            <p className="kpi-value mt-1 text-2xl font-bold text-emerald-600">
+              {optimal ? formatCurrency(optimal.totalChainCost) : "–"}
+            </p>
+            {optimal && optimal.totalChainCost > 0 && (
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                {((totalChainCost / optimal.totalChainCost - 1) * 100).toFixed(0)}% por encima del óptimo
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -192,6 +206,7 @@ export default function ResultadosPage() {
         players={orderedPlayers}
         demandPattern={game.demandPattern}
         totalRounds={game.currentRound}
+        optimal={optimal}
       />
 
       <div className="mt-7 text-center">
