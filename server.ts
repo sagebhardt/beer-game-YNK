@@ -1,3 +1,4 @@
+import "next/dist/server/node-environment";
 import { createServer } from "http";
 import { parse } from "url";
 import { readFileSync } from "fs";
