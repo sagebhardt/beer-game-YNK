@@ -14,7 +14,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { DEMAND_PRESETS } from "@/lib/types";
+import { GAME_MODES, type GameMode } from "@/lib/types";
 
 export default function CrearPage() {
   const router = useRouter();
@@ -24,8 +24,8 @@ export default function CrearPage() {
 
   const [name, setName] = useState("");
   const [playerName, setPlayerName] = useState("");
+  const [mode, setMode] = useState<GameMode>("MULTI");
   const [totalRounds, setTotalRounds] = useState(36);
-  const [demandPreset, setDemandPreset] = useState("classic");
   const [holdingCost, setHoldingCost] = useState(0.5);
   const [backlogCost, setBacklogCost] = useState(1.0);
   const [startInventory, setStartInventory] = useState(12);
@@ -46,8 +46,8 @@ export default function CrearPage() {
         body: JSON.stringify({
           name,
           playerName: playerName.trim(),
+          mode,
           totalRounds,
-          demandPreset,
           holdingCost,
           backlogCost,
           startInventory,
@@ -60,7 +60,11 @@ export default function CrearPage() {
         return;
       }
 
-      router.push(`/juego/${data.game.accessCode}/lobby`);
+      if (mode === "TEST") {
+        router.push(`/juego/${data.game.accessCode}/test`);
+      } else {
+        router.push(`/juego/${data.game.accessCode}/lobby`);
+      }
     } catch {
       setError("Error de conexión");
     } finally {
@@ -111,20 +115,24 @@ export default function CrearPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Patrón de demanda
+                Modo de juego
               </label>
               <Select
-                value={demandPreset}
-                onChange={(e) => setDemandPreset(e.target.value)}
+                value={mode}
+                onChange={(e) => setMode(e.target.value as GameMode)}
               >
-                {Object.entries(DEMAND_PRESETS).map(([key, preset]) => (
-                  <option key={key} value={key}>
-                    {preset.label}
+                {GAME_MODES.map((gameMode) => (
+                  <option key={gameMode} value={gameMode}>
+                    {gameMode === "MULTI"
+                      ? "Multijugador"
+                      : "Test (1 persona)"}
                   </option>
                 ))}
               </Select>
               <p className="text-xs text-gray-400 mt-1">
-                {DEMAND_PRESETS[demandPreset]?.description}
+                {mode === "MULTI"
+                  ? "Modo clásico para 4 participantes."
+                  : "Una sola persona controla todos los roles."}
               </p>
             </div>
 

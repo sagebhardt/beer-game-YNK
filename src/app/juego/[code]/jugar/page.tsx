@@ -85,6 +85,11 @@ export default function JugarPage() {
       const data = await res.json();
       if (!res.ok) return;
 
+      if (data.game?.mode === "TEST") {
+        router.push(`/juego/${code}/test`);
+        return;
+      }
+
       if (data.game?.status === "COMPLETED") {
         router.push(`/juego/${code}/resultados`);
         return;

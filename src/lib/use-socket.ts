@@ -8,6 +8,8 @@ export function useSocket(gameCode: string, sessionId: string) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    if (!sessionId) return;
+
     const socket = ioClient({
       path: "/api/socketio",
     });

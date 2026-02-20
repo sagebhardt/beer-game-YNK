@@ -5,6 +5,7 @@ import { initializeGame } from "@/lib/game-engine";
 import { ROLES } from "@/lib/types";
 import { getIO } from "@/lib/socket-server";
 import { S2C } from "@/lib/socket-events";
+import { emitAdminGameUpsert } from "@/lib/admin-monitor";
 
 export async function POST(
   _request: Request,
@@ -40,6 +41,13 @@ export async function POST(
       );
     }
 
+    if (game.mode === "TEST") {
+      return NextResponse.json(
+        { error: "El modo Test se inicia automáticamente" },
+        { status: 400 }
+      );
+    }
+
     // Check all 4 roles are assigned
     const assignedRoles = game.players
       .map((p) => p.role)
@@ -59,6 +67,7 @@ export async function POST(
     const io = getIO();
     if (io) {
       io.to(code).emit(S2C.GAME_STARTED, { currentRound: 1 });
+      await emitAdminGameUpsert(io, code);
     }
 
     return NextResponse.json({ success: true });

@@ -44,6 +44,11 @@ export default function LobbyPage() {
       const data = await res.json();
       if (!res.ok) return;
 
+      if (data.game?.mode === "TEST") {
+        router.push(`/juego/${code}/test`);
+        return;
+      }
+
       if (data.game?.status === "ACTIVE") {
         router.push(`/juego/${code}/jugar`);
         return;
@@ -64,6 +69,11 @@ export default function LobbyPage() {
       fetch(`/api/games/${code}`).then((r) => r.json()),
     ]).then(([sessionData, gameData]) => {
       if (sessionData.sessionId) setSessionId(sessionData.sessionId);
+
+      if (gameData.game?.mode === "TEST") {
+        router.push(`/juego/${code}/test`);
+        return;
+      }
 
       if (gameData.game?.status === "ACTIVE") {
         router.push(`/juego/${code}/jugar`);
