@@ -367,7 +367,11 @@ export async function getPlayerState(gameId: string, sessionId: string) {
     where: { gameId_round: { gameId, round: currentRound } },
   });
 
-  const lastRound = roundHistory[roundHistory.length - 1];
+  // Use last PROCESSED round for KPI display.
+  // The order API creates a PlayerRound placeholder with all fields at 0 (except orderPlaced)
+  // when a player submits. That unprocessed entry must not override the real KPIs.
+  const processedRounds = roundHistory.filter((r) => r.round < currentRound);
+  const lastRound = processedRounds[processedRounds.length - 1];
 
   return {
     game: {
@@ -457,7 +461,9 @@ export async function getHostState(gameId: string) {
       endedReason: game.endedReason,
     },
     players: game.players.map((p) => {
-      const lastRound = p.roundData[p.roundData.length - 1];
+      // Use last PROCESSED round for KPIs (exclude unprocessed current-round placeholders)
+      const processedRounds = p.roundData.filter((r) => r.round < game.currentRound);
+      const lastRound = processedRounds[processedRounds.length - 1];
       return {
         id: p.id,
         name: p.name,
