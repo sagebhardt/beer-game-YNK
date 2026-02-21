@@ -313,7 +313,7 @@ export default function AdminGameDetailPage() {
               <Card>
                 <CardContent className="py-4">
                   <p className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                    <Target className="h-3.5 w-3.5" /> Costo óptimo cadena
+                    <Target className="h-3.5 w-3.5" /> Costo sin efecto látigo
                   </p>
                   <p className="kpi-value mt-1 text-xl font-bold text-emerald-600">
                     {formatCurrency(analytics.optimal.totalChainCost)}
@@ -322,7 +322,7 @@ export default function AdminGameDetailPage() {
               </Card>
               <Card>
                 <CardContent className="py-4">
-                  <p className="text-xs text-[var(--text-muted)]">% sobre óptimo</p>
+                  <p className="text-xs text-[var(--text-muted)]">% sobre referencia</p>
                   <p className="kpi-value mt-1 text-xl font-bold text-[var(--accent)]">
                     {analytics.optimal.totalChainCost > 0 && Number.isFinite(analytics.kpis.totalChainCost / analytics.optimal.totalChainCost)
                       ? `${((analytics.kpis.totalChainCost / analytics.optimal.totalChainCost - 1) * 100).toFixed(0)}%`
@@ -332,7 +332,7 @@ export default function AdminGameDetailPage() {
               </Card>
               <Card>
                 <CardContent className="py-4">
-                  <p className="text-xs text-[var(--text-muted)]">Costo real vs óptimo por rol</p>
+                  <p className="text-xs text-[var(--text-muted)]">Costo real vs referencia por rol</p>
                   <div className="mt-1 space-y-0.5 text-xs">
                     {ROLES.map((role) => {
                       const actual = analytics.kpis.costsByRole[role] ?? 0;
