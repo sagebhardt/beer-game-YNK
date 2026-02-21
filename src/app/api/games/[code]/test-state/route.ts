@@ -44,11 +44,9 @@ export async function GET(
     }
 
     const state = await getHostState(game.id);
-    const { demandPattern: _hiddenPattern, ...safeGame } = state.game;
 
     return NextResponse.json({
       ...state,
-      game: safeGame,
       isController: true,
     });
   } catch (error) {
