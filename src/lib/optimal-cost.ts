@@ -238,3 +238,176 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
 
   return { perRole, perRoleTotalCost, totalChainCost };
 }
+
+/**
+ * Simulate the full supply chain using a given per-role order schedule.
+ *
+ * For rounds beyond the provided schedule, each role orders exactly the
+ * consumer demand (steady-state / no-bullwhip fallback).
+ *
+ * This is used by the benchmark system to extend a short game's strategy
+ * to the full totalRounds — e.g. a player plays 10 brilliant rounds, then
+ * we simulate rounds 11-36 with order=demand to get the complete cost curve.
+ */
+export function simulateWithOrders(
+  params: OptimalParams,
+  orderSchedule: Record<Role, number[]>, // orders[roundIndex] for rounds 1..N
+): OptimalResult {
+  const {
+    demandPattern,
+    totalRounds,
+    startInventory,
+    holdingCost,
+    backlogCost,
+    orderDelay,
+    shippingDelay,
+  } = params;
+
+  const steadyDemand = demandPattern[0] ?? 4;
+
+  function getDemand(round: number): number {
+    if (round < 1) return steadyDemand;
+    const idx = Math.min(round - 1, demandPattern.length - 1);
+    return demandPattern[idx] ?? steadyDemand;
+  }
+
+  // Initialize role states
+  const state: Record<Role, RoleState> = {} as Record<Role, RoleState>;
+  for (const role of ROLES) {
+    state[role] = {
+      inventory: startInventory,
+      backlog: 0,
+      totalCostCumulative: 0,
+    };
+  }
+
+  // Initialize pipeline — mirrors game-engine.ts exactly
+  const pipeline: PipeItem[] = [];
+
+  for (const role of ROLES) {
+    const downstream = DOWNSTREAM[role];
+    if (downstream !== "CONSUMER") {
+      pipeline.push(
+        { type: "SHIPMENT", toRole: downstream as Role, quantity: steadyDemand, roundDue: 1 },
+        { type: "SHIPMENT", toRole: downstream as Role, quantity: steadyDemand, roundDue: 2 },
+      );
+    }
+  }
+
+  for (const role of ROLES) {
+    const upstream = UPSTREAM[role];
+    if (upstream !== "PRODUCTION") {
+      pipeline.push(
+        { type: "ORDER", toRole: upstream as Role, quantity: steadyDemand, roundDue: 1 },
+        { type: "ORDER", toRole: upstream as Role, quantity: steadyDemand, roundDue: 2 },
+      );
+    }
+  }
+
+  pipeline.push(
+    { type: "PRODUCTION", toRole: "FACTORY", quantity: steadyDemand, roundDue: 1 },
+    { type: "PRODUCTION", toRole: "FACTORY", quantity: steadyDemand, roundDue: 2 },
+  );
+
+  // Collect round data
+  const perRole: Record<Role, OptimalRoundData[]> = {} as Record<Role, OptimalRoundData[]>;
+  for (const role of ROLES) {
+    perRole[role] = [];
+  }
+
+  // Simulate each round
+  for (let round = 1; round <= totalRounds; round++) {
+    const demand = getDemand(round);
+
+    for (const role of ROLES) {
+      const rs = state[role];
+
+      // 1. RECEIVE SHIPMENTS
+      const shipmentTypes = role === "FACTORY" ? ["SHIPMENT", "PRODUCTION"] : ["SHIPMENT"];
+      let incomingShipment = 0;
+      for (const item of pipeline) {
+        if (shipmentTypes.includes(item.type) && item.toRole === role && item.roundDue === round) {
+          incomingShipment += item.quantity;
+        }
+      }
+
+      // 2. RECEIVE ORDERS
+      let incomingOrder: number;
+      if (role === "RETAILER") {
+        incomingOrder = demand;
+      } else {
+        let receivedOrders = 0;
+        for (const item of pipeline) {
+          if (item.type === "ORDER" && item.toRole === role && item.roundDue === round) {
+            receivedOrders += item.quantity;
+          }
+        }
+        incomingOrder = receivedOrders;
+      }
+
+      // 3. SHIP
+      const inventoryBefore = rs.inventory + incomingShipment;
+      const totalDemandThisRound = incomingOrder + rs.backlog;
+      const shipmentSent = Math.min(inventoryBefore, totalDemandThisRound);
+      const inventoryAfter = inventoryBefore - shipmentSent;
+      const backlogAfter = totalDemandThisRound - shipmentSent;
+
+      const downstream = DOWNSTREAM[role];
+      if (downstream !== "CONSUMER") {
+        pipeline.push({
+          type: "SHIPMENT",
+          toRole: downstream as Role,
+          quantity: shipmentSent,
+          roundDue: round + shippingDelay,
+        });
+      }
+
+      // 4. PLACE ORDERS — use schedule if available, otherwise demand
+      const scheduleOrders = orderSchedule[role];
+      const orderPlaced = (round - 1 < scheduleOrders.length)
+        ? scheduleOrders[round - 1]
+        : demand;
+
+      const upstream = UPSTREAM[role];
+      if (upstream === "PRODUCTION") {
+        pipeline.push({
+          type: "PRODUCTION",
+          toRole: "FACTORY",
+          quantity: orderPlaced,
+          roundDue: round + orderDelay + shippingDelay,
+        });
+      } else {
+        pipeline.push({
+          type: "ORDER",
+          toRole: upstream as Role,
+          quantity: orderPlaced,
+          roundDue: round + orderDelay,
+        });
+      }
+
+      // 5. COSTS
+      const hCost = inventoryAfter * holdingCost;
+      const bCost = backlogAfter * backlogCost;
+      rs.totalCostCumulative += hCost + bCost;
+      rs.inventory = inventoryAfter;
+      rs.backlog = backlogAfter;
+
+      perRole[role].push({
+        round,
+        orderPlaced,
+        inventoryAfter,
+        backlogAfter,
+        totalCostCumulative: rs.totalCostCumulative,
+      });
+    }
+  }
+
+  const perRoleTotalCost = {} as Record<Role, number>;
+  let totalChainCost = 0;
+  for (const role of ROLES) {
+    perRoleTotalCost[role] = state[role].totalCostCumulative;
+    totalChainCost += state[role].totalCostCumulative;
+  }
+
+  return { perRole, perRoleTotalCost, totalChainCost };
+}
