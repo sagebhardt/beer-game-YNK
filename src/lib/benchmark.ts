@@ -6,7 +6,7 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
 import { ROLES, type Role } from "@/lib/types";
-import type { OptimalResult, OptimalRoundData } from "@/lib/optimal-cost";
+import { simulateWithOrders, type OptimalResult, type OptimalRoundData } from "@/lib/optimal-cost";
 
 interface GameConfig {
   demandPattern: string;
@@ -33,8 +33,10 @@ export function configHash(cfg: GameConfig): string {
 }
 
 /**
- * After a game completes, check if it's the new best for its config.
- * If so, save it as the benchmark.
+ * After a game completes (naturally or by admin), check if it's the new
+ * best for its config.  If the game ended early (played < totalRounds),
+ * the actual per-role orders are extended with demand-matching orders for
+ * the remaining rounds, then the full chain is simulated to get costs.
  */
 export async function maybeUpdateBenchmark(gameId: string): Promise<void> {
   const game = await prisma.game.findUnique({
@@ -50,11 +52,8 @@ export async function maybeUpdateBenchmark(gameId: string): Promise<void> {
 
   if (!game || game.status !== "COMPLETED") return;
 
-  // Compute total chain cost from player data
-  let totalChainCost = 0;
-  const costsByRole: Record<string, number> = {};
-  const perRoleData: Record<string, OptimalRoundData[]> = {};
-
+  // Extract per-role order schedule from actual game data
+  const orderSchedule = {} as Record<Role, number[]>;
   for (const role of ROLES) {
     const player = game.players.find((p) => p.role === role);
     if (!player) return; // Incomplete game, skip
@@ -62,20 +61,25 @@ export async function maybeUpdateBenchmark(gameId: string): Promise<void> {
     const rounds = player.roundData.filter(
       (rd) => rd.round > 0 && rd.orderPlaced !== null
     );
-    const last = rounds[rounds.length - 1];
-    const roleCost = last?.totalCostCumulative ?? 0;
-
-    costsByRole[role] = roleCost;
-    totalChainCost += roleCost;
-
-    perRoleData[role] = rounds.map((rd) => ({
-      round: rd.round,
-      orderPlaced: rd.orderPlaced ?? 0,
-      inventoryAfter: rd.inventoryAfter,
-      backlogAfter: rd.backlogAfter,
-      totalCostCumulative: rd.totalCostCumulative,
-    }));
+    // Orders indexed 0..N-1 corresponding to rounds 1..N
+    orderSchedule[role] = rounds.map((rd) => rd.orderPlaced ?? 0);
   }
+
+  const demandPattern: number[] = JSON.parse(game.demandPattern);
+
+  // Simulate the full totalRounds using actual orders + demand fallback
+  const simResult = simulateWithOrders(
+    {
+      demandPattern,
+      totalRounds: game.totalRounds,
+      startInventory: game.startInventory,
+      holdingCost: game.holdingCost,
+      backlogCost: game.backlogCost,
+      orderDelay: game.orderDelay,
+      shippingDelay: game.shippingDelay,
+    },
+    orderSchedule,
+  );
 
   const hash = configHash({
     demandPattern: game.demandPattern,
@@ -92,8 +96,16 @@ export async function maybeUpdateBenchmark(gameId: string): Promise<void> {
     where: { configHash: hash },
   });
 
-  if (existing && existing.totalChainCost <= totalChainCost) {
+  if (existing && existing.totalChainCost <= simResult.totalChainCost) {
     return; // Current benchmark is still better
+  }
+
+  // Build storage payload
+  const costsByRole: Record<string, number> = {};
+  const perRoleData: Record<string, OptimalRoundData[]> = {};
+  for (const role of ROLES) {
+    costsByRole[role] = simResult.perRoleTotalCost[role];
+    perRoleData[role] = simResult.perRole[role];
   }
 
   // Upsert — new best game
@@ -102,14 +114,14 @@ export async function maybeUpdateBenchmark(gameId: string): Promise<void> {
     create: {
       configHash: hash,
       gameCode: game.accessCode,
-      totalChainCost,
+      totalChainCost: simResult.totalChainCost,
       costsByRole: JSON.stringify(costsByRole),
       perRoleData: JSON.stringify(perRoleData),
       completedAt: game.endedAt ?? new Date(),
     },
     update: {
       gameCode: game.accessCode,
-      totalChainCost,
+      totalChainCost: simResult.totalChainCost,
       costsByRole: JSON.stringify(costsByRole),
       perRoleData: JSON.stringify(perRoleData),
       completedAt: game.endedAt ?? new Date(),
