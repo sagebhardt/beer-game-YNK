@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { io as ioClient, type Socket } from "socket.io-client";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { formatCurrency } from "@/lib/utils";
 import { C2S, S2C } from "@/lib/socket-events";
 import { PageShell } from "@/components/layout/page-shell";
 import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
+import { ResultsCharts, type OptimalData } from "@/components/game/results-charts";
 
 interface AdminDetailData {
   game: {
@@ -65,6 +66,7 @@ interface AdminDetailData {
 }
 
 interface GameAnalyticsData {
+  demandSeries: number[];
   kpis: {
     totalChainCost: number;
     totalBacklogPeak: number;
@@ -72,6 +74,7 @@ interface GameAnalyticsData {
     avgInventoryByRole: Record<string, number>;
     bullwhipByRole: Record<string, number>;
   };
+  optimal: OptimalData | null;
 }
 
 export default function AdminGameDetailPage() {
@@ -296,38 +299,109 @@ export default function AdminGameDetailPage() {
       </div>
 
       {analytics ? (
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm">Bullwhip por rol</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {ROLES.map((role) => (
-                <div key={role} className="flex justify-between">
-                  <span>{ROLE_LABELS[role]}</span>
-                  <span className="font-medium">
-                    {(analytics.kpis.bullwhipByRole[role] ?? 0).toFixed(2)}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm">Inventario promedio por rol</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {ROLES.map((role) => (
-                <div key={role} className="flex justify-between">
-                  <span>{ROLE_LABELS[role]}</span>
-                  <span className="font-medium">
-                    {(analytics.kpis.avgInventoryByRole[role] ?? 0).toFixed(2)}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+        <>
+          {/* Optimal comparison KPIs — only for completed games */}
+          {analytics.optimal && detail.game.status === "COMPLETED" ? (
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <Card>
+                <CardContent className="py-4">
+                  <p className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+                    <Target className="h-3.5 w-3.5" /> Costo óptimo cadena
+                  </p>
+                  <p className="kpi-value mt-1 text-xl font-bold text-emerald-600">
+                    {formatCurrency(analytics.optimal.totalChainCost)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="py-4">
+                  <p className="text-xs text-[var(--text-muted)]">% sobre óptimo</p>
+                  <p className="kpi-value mt-1 text-xl font-bold text-[var(--accent)]">
+                    {analytics.optimal.totalChainCost > 0 && Number.isFinite(analytics.kpis.totalChainCost / analytics.optimal.totalChainCost)
+                      ? `${((analytics.kpis.totalChainCost / analytics.optimal.totalChainCost - 1) * 100).toFixed(0)}%`
+                      : "–"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="py-4">
+                  <p className="text-xs text-[var(--text-muted)]">Costo real vs óptimo por rol</p>
+                  <div className="mt-1 space-y-0.5 text-xs">
+                    {ROLES.map((role) => {
+                      const actual = analytics.kpis.costsByRole[role] ?? 0;
+                      const opt = analytics.optimal!.perRoleTotalCost[role] ?? 0;
+                      return (
+                        <div key={role} className="flex justify-between">
+                          <span>{ROLE_LABELS[role]}</span>
+                          <span>
+                            <span className="font-medium">{formatCurrency(actual)}</span>
+                            <span className="text-[var(--text-muted)]"> / {formatCurrency(opt)}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+
+          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">Bullwhip por rol</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {ROLES.map((role) => (
+                  <div key={role} className="flex justify-between">
+                    <span>{ROLE_LABELS[role]}</span>
+                    <span className="font-medium">
+                      {(analytics.kpis.bullwhipByRole[role] ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">Inventario promedio por rol</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {ROLES.map((role) => (
+                  <div key={role} className="flex justify-between">
+                    <span>{ROLE_LABELS[role]}</span>
+                    <span className="font-medium">
+                      {(analytics.kpis.avgInventoryByRole[role] ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts with optimal overlay — only for completed games with round data */}
+          {detail.game.status === "COMPLETED" && orderedPlayers.length > 0 && orderedPlayers[0].roundData.length > 0 ? (
+            <div className="mb-4">
+              <ResultsCharts
+                players={orderedPlayers.map((p) => ({
+                  role: p.role,
+                  name: p.name,
+                  roundData: p.roundData.map((rd) => ({
+                    round: rd.round,
+                    incomingOrder: rd.incomingOrder,
+                    orderPlaced: rd.orderPlaced,
+                    inventoryAfter: rd.inventoryAfter,
+                    backlogAfter: rd.backlogAfter,
+                    totalCostCumulative: rd.totalCostCumulative,
+                  })),
+                }))}
+                demandPattern={analytics.demandSeries}
+                totalRounds={detail.game.currentRound}
+                optimal={analytics.optimal ?? undefined}
+              />
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       <Card className="mb-4">
