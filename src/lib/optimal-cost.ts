@@ -2,11 +2,14 @@
  * Compute the optimal (perfect-information) cost for the Beer Game.
  *
  * With perfect information every role knows the entire future demand
- * pattern. The optimal strategy is **forward-looking**: each role
- * orders on round t what consumer demand will be on round t + L,
- * where L = orderDelay + shippingDelay (the replenishment lead time).
- * This way the right quantity arrives exactly when it is needed,
- * minimising both holding and backlog costs during demand transitions.
+ * pattern. The optimal strategy uses **inventory-position targeting**:
+ * each role computes the total demand it will face over the next L
+ * rounds (where L = orderDelay + shippingDelay is the replenishment
+ * lead time) and orders just enough to bring its inventory position
+ * (on-hand + in-pipeline - backlog) up to that target.
+ *
+ * This avoids both over-ordering (which builds costly inventory) and
+ * under-ordering (which causes costly backlogs).
  *
  * Pipeline initialization mirrors game-engine.ts initializeGame()
  * exactly (2 items per type, arriving rounds 1 & 2).
@@ -93,8 +96,7 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
     return demandPattern[idx] ?? steadyDemand;
   }
 
-  // Replenishment lead time: how many rounds from placing an order
-  // until the resulting shipment arrives back
+  // Replenishment lead time
   const leadTime = orderDelay + shippingDelay;
 
   // Initialize role states
@@ -145,6 +147,23 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
     perRole[role] = [];
   }
 
+  // Helper: sum pipeline shipments arriving for a role from roundStart to roundEnd (inclusive)
+  function pendingShipments(role: Role, roundStart: number, roundEnd: number): number {
+    const types = role === "FACTORY" ? ["SHIPMENT", "PRODUCTION"] : ["SHIPMENT"];
+    let total = 0;
+    for (const item of pipeline) {
+      if (
+        types.includes(item.type) &&
+        item.toRole === role &&
+        item.roundDue >= roundStart &&
+        item.roundDue <= roundEnd
+      ) {
+        total += item.quantity;
+      }
+    }
+    return total;
+  }
+
   // Simulate each round
   for (let round = 1; round <= totalRounds; round++) {
     const demand = getDemand(round);
@@ -166,7 +185,6 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
       if (role === "RETAILER") {
         incomingOrder = demand;
       } else {
-        // Upstream receives the order that downstream placed (via pipeline)
         let receivedOrders = 0;
         for (const item of pipeline) {
           if (item.type === "ORDER" && item.toRole === role && item.roundDue === round) {
@@ -194,10 +212,27 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
         });
       }
 
-      // 4. PLACE ORDERS — forward-looking: order what demand will be
-      //    when this order materialises into a received shipment
-      const futureDemand = getDemand(round + leadTime);
-      const orderPlaced = futureDemand;
+      // 4. PLACE ORDERS — inventory-position targeting
+      //
+      // Compute what we need to cover demand over the lead time window.
+      // An order placed NOW arrives on round (round + leadTime).
+      // We need enough stock to cover demand from (round+1) to (round + leadTime).
+      //
+      // Inventory position = inventoryAfter - backlogAfter + pending shipments
+      // Target = sum of demand from (round+1) to (round + leadTime)
+      // Order = max(0, target - inventoryPosition)
+
+      // Sum demand we need to cover until the order arrives
+      let demandOverLeadTime = 0;
+      for (let r = round + 1; r <= round + leadTime; r++) {
+        demandOverLeadTime += getDemand(r);
+      }
+
+      // Inventory position: what we have + what's coming - what we owe
+      const inPipeline = pendingShipments(role, round + 1, round + leadTime);
+      const inventoryPosition = inventoryAfter - backlogAfter + inPipeline;
+
+      const orderPlaced = Math.max(0, demandOverLeadTime - inventoryPosition);
 
       const upstream = UPSTREAM[role];
       if (upstream === "PRODUCTION") {
