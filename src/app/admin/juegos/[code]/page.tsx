@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { io as ioClient, type Socket } from "socket.io-client";
-import { ArrowLeft, Download, Target } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -242,6 +242,13 @@ export default function AdminGameDetailPage() {
           </Link>
           <Badge variant="outline">{detail.game.status}</Badge>
           <Badge variant="outline">{detail.game.mode}</Badge>
+          {detail.game.status === "COMPLETED" ? (
+            <Link href={`/juego/${code}/resultados`}>
+              <Button size="sm" variant="outline">
+                <ExternalLink className="w-4 h-4" /> Ver resultados
+              </Button>
+            </Link>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
