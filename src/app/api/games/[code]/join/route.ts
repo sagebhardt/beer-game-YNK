@@ -12,7 +12,7 @@ export async function POST(
     const { code } = await params;
     const sessionId = await getSessionId();
     const body = await request.json();
-    const { name } = body;
+    const { name, spectate = false } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -33,16 +33,24 @@ export async function POST(
       );
     }
 
-    if (game.status !== "LOBBY") {
+    if (game.mode === "TEST") {
+      return NextResponse.json(
+        { error: "Los juegos en modo Test no admiten participantes" },
+        { status: 400 }
+      );
+    }
+
+    // Spectators can join in LOBBY or ACTIVE; regular players only in LOBBY
+    if (!spectate && game.status !== "LOBBY") {
       return NextResponse.json(
         { error: "El juego ya comenzó" },
         { status: 400 }
       );
     }
 
-    if (game.mode === "TEST") {
+    if (spectate && game.status === "COMPLETED") {
       return NextResponse.json(
-        { error: "Los juegos en modo Test no admiten participantes" },
+        { error: "El juego ya finalizó" },
         { status: 400 }
       );
     }
@@ -55,17 +63,30 @@ export async function POST(
           id: existingPlayer.id,
           name: existingPlayer.name,
           role: existingPlayer.role,
+          isSpectator: existingPlayer.isSpectator,
         },
-        game: { accessCode: game.accessCode },
+        game: { accessCode: game.accessCode, status: game.status },
       });
     }
 
-    // Check player count
-    if (game.players.length >= 4) {
-      return NextResponse.json(
-        { error: "El juego está lleno (máximo 4 jugadores)" },
-        { status: 400 }
-      );
+    if (spectate) {
+      // Cap spectators at 10
+      const spectatorCount = game.players.filter((p) => p.isSpectator).length;
+      if (spectatorCount >= 10) {
+        return NextResponse.json(
+          { error: "Máximo 10 espectadores por partida" },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Check player count (only non-spectators count toward 4)
+      const playerCount = game.players.filter((p) => !p.isSpectator).length;
+      if (playerCount >= 4) {
+        return NextResponse.json(
+          { error: "El juego está lleno (máximo 4 jugadores)" },
+          { status: 400 }
+        );
+      }
     }
 
     const player = await prisma.player.create({
@@ -74,6 +95,7 @@ export async function POST(
         name: name.trim(),
         sessionId,
         role: "",
+        isSpectator: !!spectate,
       },
     });
 
@@ -83,8 +105,8 @@ export async function POST(
     }
 
     return NextResponse.json({
-      player: { id: player.id, name: player.name, role: player.role },
-      game: { accessCode: game.accessCode },
+      player: { id: player.id, name: player.name, role: player.role, isSpectator: player.isSpectator },
+      game: { accessCode: game.accessCode, status: game.status },
     });
   } catch (error) {
     console.error("Error al unirse:", error);

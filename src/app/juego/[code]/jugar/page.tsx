@@ -97,8 +97,9 @@ export default function JugarPage() {
         return;
       }
 
-      if (data.isHost && data.players) {
-        router.push(`/juego/${code}/host`);
+      // Spectators get redirected to the spectate view
+      if (data.isSpectator) {
+        router.push(`/juego/${code}/spectate`);
         return;
       }
 

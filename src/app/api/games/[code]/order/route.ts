@@ -65,6 +65,13 @@ export async function POST(
       );
     }
 
+    if (player.isSpectator) {
+      return NextResponse.json(
+        { error: "Los espectadores no pueden enviar pedidos" },
+        { status: 403 }
+      );
+    }
+
     const role = player.role as Role;
     const currentRound = game.currentRound;
 

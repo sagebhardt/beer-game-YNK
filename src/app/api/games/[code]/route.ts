@@ -43,10 +43,11 @@ export async function GET(
           name: p.name,
           role: p.role,
           isConnected: p.isConnected,
+          isSpectator: p.isSpectator,
         })),
         isHost,
         currentPlayer: player
-          ? { id: player.id, name: player.name, role: player.role }
+          ? { id: player.id, name: player.name, role: player.role, isSpectator: player.isSpectator }
           : null,
       });
     }
@@ -62,7 +63,8 @@ export async function GET(
       );
     }
 
-    if (isHost || isController) {
+    // TEST mode controller → full host view
+    if (isController) {
       const hostState = await getHostState(game.id);
       const { demandPattern: _hiddenPattern, ...safeGame } = hostState.game;
       const { currentDemand: _hiddenDemand, ...safeHostState } = hostState;
@@ -74,7 +76,6 @@ export async function GET(
           isAdmin: true,
         });
       }
-
       return NextResponse.json({
         ...safeHostState,
         game: safeGame,
@@ -83,6 +84,19 @@ export async function GET(
       });
     }
 
+    // Spectators → full host view (demand hidden)
+    if (player?.isSpectator) {
+      const hostState = await getHostState(game.id);
+      const { demandPattern: _hiddenPattern, ...safeGame } = hostState.game;
+      const { currentDemand: _hiddenDemand, ...safeHostState } = hostState;
+      return NextResponse.json({
+        ...safeHostState,
+        game: safeGame,
+        isSpectator: true,
+      });
+    }
+
+    // Regular players (including host) → siloed player view
     const playerState = await getPlayerState(game.id, sessionId);
     return NextResponse.json(playerState);
   } catch (error) {

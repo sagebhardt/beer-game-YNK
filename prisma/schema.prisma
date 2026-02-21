@@ -45,6 +45,7 @@ model Player {
   role        String   @default("") // RETAILER | WHOLESALER | DISTRIBUTOR | FACTORY
   sessionId   String
   isConnected Boolean  @default(false)
+  isSpectator Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   game      Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)

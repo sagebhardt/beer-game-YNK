@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ export default function UnirsePage() {
   const [code, setCode] = useState("");
   const [playerName, setPlayerName] = useState("");
 
-  async function handleJoin() {
+  async function handleJoin(spectate = false) {
     if (!code.trim()) {
       setError("Ingresa el código de acceso");
       return;
@@ -40,7 +40,7 @@ export default function UnirsePage() {
       const res = await fetch(`/api/games/${accessCode}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: playerName.trim() }),
+        body: JSON.stringify({ name: playerName.trim(), spectate }),
       });
 
       const data = await res.json();
@@ -49,7 +49,12 @@ export default function UnirsePage() {
         return;
       }
 
-      router.push(`/juego/${accessCode}/lobby`);
+      // If joining an active game as spectator, go directly to spectate
+      if (spectate && data.game?.status === "ACTIVE") {
+        router.push(`/juego/${accessCode}/spectate`);
+      } else {
+        router.push(`/juego/${accessCode}/lobby`);
+      }
     } catch {
       setError("Error de conexión");
     } finally {
@@ -101,8 +106,18 @@ export default function UnirsePage() {
 
           {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 
-          <Button className="w-full" size="lg" onClick={handleJoin} disabled={loading}>
+          <Button className="w-full" size="lg" onClick={() => handleJoin(false)} disabled={loading}>
             {loading ? "Uniéndose..." : "Entrar a la sala"}
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => handleJoin(true)}
+            disabled={loading}
+          >
+            <Eye className="w-4 h-4" />
+            {loading ? "Uniéndose..." : "Observar partida"}
           </Button>
         </CardContent>
       </Card>
