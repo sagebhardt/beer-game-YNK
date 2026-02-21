@@ -430,7 +430,12 @@ export async function getHostState(gameId: string) {
   });
 
   const pipeline = await prisma.pipelineItem.findMany({
-    where: { gameId, roundDue: { gt: game.currentRound } },
+    where: {
+      gameId,
+      roundDue: { gt: game.currentRound },
+      type: { in: ["SHIPMENT", "PRODUCTION"] },
+      quantity: { gt: 0 },
+    },
     orderBy: { roundDue: "asc" },
   });
 
