@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Beer, Copy, Check, Users, Wifi, WifiOff } from "lucide-react";
+import { Beer, Copy, Check, Eye, Users, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -17,6 +17,7 @@ interface LobbyPlayer {
   name: string;
   role: string;
   isConnected: boolean;
+  isSpectator?: boolean;
 }
 
 export default function LobbyPage() {
@@ -26,6 +27,7 @@ export default function LobbyPage() {
 
   const [players, setPlayers] = useState<LobbyPlayer[]>([]);
   const [isHost, setIsHost] = useState(false);
+  const [isCurrentSpectator, setIsCurrentSpectator] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string>("");
   const [copied, setCopied] = useState(false);
@@ -46,12 +48,17 @@ export default function LobbyPage() {
       }
 
       if (data.game?.status === "ACTIVE") {
-        router.push(`/juego/${code}/jugar`);
+        if (data.currentPlayer?.isSpectator || data.isSpectator) {
+          router.push(`/juego/${code}/spectate`);
+        } else {
+          router.push(`/juego/${code}/jugar`);
+        }
         return;
       }
 
       setPlayers(data.players || []);
       setIsHost(data.isHost || false);
+      setIsCurrentSpectator(data.currentPlayer?.isSpectator || false);
       setCurrentPlayerId(data.currentPlayer?.id || null);
     } catch {
       // ignore
@@ -71,11 +78,16 @@ export default function LobbyPage() {
       }
 
       if (gameData.game?.status === "ACTIVE") {
-        router.push(`/juego/${code}/jugar`);
+        if (gameData.currentPlayer?.isSpectator || gameData.isSpectator) {
+          router.push(`/juego/${code}/spectate`);
+        } else {
+          router.push(`/juego/${code}/jugar`);
+        }
         return;
       }
       setPlayers(gameData.players || []);
       setIsHost(gameData.isHost || false);
+      setIsCurrentSpectator(gameData.currentPlayer?.isSpectator || false);
       setCurrentPlayerId(gameData.currentPlayer?.id || null);
     });
   }, [code, router]);
@@ -116,7 +128,11 @@ export default function LobbyPage() {
     );
 
     socket.on(S2C.GAME_STARTED, () => {
-      router.push(`/juego/${code}/jugar`);
+      if (isCurrentSpectator) {
+        router.push(`/juego/${code}/spectate`);
+      } else {
+        router.push(`/juego/${code}/jugar`);
+      }
     });
 
     socket.on(S2C.ERROR, ({ message }: { message: string }) => {
@@ -132,7 +148,7 @@ export default function LobbyPage() {
       socket.off(S2C.GAME_STARTED);
       socket.off(S2C.ERROR);
     };
-  }, [socket, code, router]);
+  }, [socket, code, router, isCurrentSpectator]);
 
   function handleSelectRole(role: Role) {
     if (!socket) return;
@@ -161,15 +177,18 @@ export default function LobbyPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const activePlayers = players.filter((p) => !p.isSpectator);
+  const spectators = players.filter((p) => p.isSpectator);
+
   const allRolesAssigned = ROLES.every((role) =>
-    players.some((p) => p.role === role)
+    activePlayers.some((p) => p.role === role)
   );
 
-  const currentPlayerRole = (players.find((p) => p.id === currentPlayerId)?.role as Role | undefined) ?? null;
+  const currentPlayerRole = (activePlayers.find((p) => p.id === currentPlayerId)?.role as Role | undefined) ?? null;
 
   const chainStatuses = Object.fromEntries(
     ROLES.map((role) => {
-      const assigned = players.find((p) => p.role === role);
+      const assigned = activePlayers.find((p) => p.role === role);
       if (!assigned) return [role, "warn"];
       return [role, assigned.isConnected ? "ok" : "danger"];
     })
@@ -177,7 +196,7 @@ export default function LobbyPage() {
 
   const chainText = Object.fromEntries(
     ROLES.map((role) => {
-      const assigned = players.find((p) => p.role === role);
+      const assigned = activePlayers.find((p) => p.role === role);
       if (!assigned) return [role, "Sin asignar"];
       return [role, assigned.name];
     })
@@ -196,6 +215,7 @@ export default function LobbyPage() {
             <Badge variant="destructive">Offline</Badge>
           )}
           {isHost ? <Badge>Anfitrión</Badge> : null}
+          {isCurrentSpectator ? <Badge variant="outline"><Eye className="h-3 w-3" /> Observador</Badge> : null}
         </div>
       }
     >
@@ -225,9 +245,10 @@ export default function LobbyPage() {
       </h2>
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {ROLES.map((role) => {
-          const assignedPlayer = players.find((p) => p.role === role);
+          const assignedPlayer = activePlayers.find((p) => p.role === role);
           const isMe = assignedPlayer?.id === currentPlayerId;
           const isTaken = !!assignedPlayer && !isMe;
+          const canClick = !isCurrentSpectator && !isTaken;
 
           return (
             <Card
@@ -235,11 +256,11 @@ export default function LobbyPage() {
               className={`transition-all ${
                 isMe
                   ? "border-[#adc7ff] ring-2 ring-[#cadbff]"
-                  : isTaken
+                  : isTaken || isCurrentSpectator
                   ? "opacity-70"
                   : "cursor-pointer hover:-translate-y-0.5"
               }`}
-              onClick={() => !isTaken && handleSelectRole(role)}
+              onClick={() => canClick && handleSelectRole(role)}
             >
               <CardHeader className="py-4">
                 <CardTitle className="text-base">{ROLE_LABELS[role]}</CardTitle>
@@ -259,9 +280,31 @@ export default function LobbyPage() {
         })}
       </div>
 
+      {spectators.length > 0 && (
+        <div className="mb-4 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-muted)] px-4 py-3">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)]">
+            <Eye className="h-3.5 w-3.5" />
+            Espectadores ({spectators.length})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {spectators.map((s) => (
+              <Badge key={s.id} variant="outline">
+                {s.name}
+                <span className={`ml-1 inline-block h-1.5 w-1.5 rounded-full ${s.isConnected ? "bg-[var(--ok)]" : "bg-[var(--danger)]"}`} />
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       {error ? <p className="mb-4 text-sm text-[var(--danger)]">{error}</p> : null}
 
-      {isHost ? (
+      {isCurrentSpectator ? (
+        <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-muted)] p-3 text-center text-sm text-[var(--text-muted)]">
+          <Eye className="mr-1 inline h-3.5 w-3.5" />
+          Modo observador — verás la partida completa sin poder intervenir.
+        </div>
+      ) : isHost ? (
         <Button className="w-full" size="lg" onClick={handleStart} disabled={!allRolesAssigned || starting}>
           {starting
             ? "Iniciando..."

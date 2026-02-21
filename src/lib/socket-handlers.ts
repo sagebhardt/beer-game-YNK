@@ -97,6 +97,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
                 name: p.name,
                 role: p.role,
                 isConnected: p.isConnected,
+                isSpectator: p.isSpectator,
               })),
             });
 
@@ -106,6 +107,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
               name: player.name,
               role: player.role,
               isConnected: true,
+              isSpectator: player.isSpectator,
             });
           }
 
@@ -130,6 +132,12 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
           const player = game.players.find((p) => p.sessionId === currentSessionId);
           if (!player) return;
+
+          // Spectators cannot select roles
+          if (player.isSpectator) {
+            socket.emit(S2C.ERROR, { message: "Los espectadores no pueden seleccionar rol" });
+            return;
+          }
 
           // Check if role is taken by another player
           const roleTaken = game.players.find(
