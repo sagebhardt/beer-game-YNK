@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Beer, Check, Clock, Flag, Send, Wifi, WifiOff } from "lucide-react";
+import { Beer, Check, Clock, Flag, Package, Send, ShoppingCart, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ interface TestStateData {
     totalRounds: number;
     holdingCost: number;
     backlogCost: number;
+    demandPattern: number[];
   };
   players: Array<{
     id: string;
@@ -45,6 +46,14 @@ interface TestStateData {
       backlogCost: number;
       totalCostCumulative: number;
     }>;
+  }>;
+  pipeline: Array<{
+    type: string;
+    fromRole: string;
+    toRole: string;
+    quantity: number;
+    roundDue: number;
+    arrivesInRounds: number;
   }>;
   submissions: {
     retailer: boolean;
@@ -194,6 +203,13 @@ export default function TestPage() {
 
   const isLastRound = state.game.currentRound >= state.game.totalRounds;
 
+  const currentDemand =
+    state.game.demandPattern?.[state.game.currentRound - 1] ??
+    state.game.demandPattern?.[state.game.demandPattern.length - 1] ??
+    4;
+
+  const totalChainCost = orderedPlayers.reduce((sum, p) => sum + p.totalCost, 0);
+
   return (
     <PageShell
       title="Modo Test"
@@ -201,6 +217,9 @@ export default function TestPage() {
       rightSlot={
         <div className="flex items-center gap-2">
           <Badge variant="outline">Ronda {state.game.currentRound}/{state.game.totalRounds}</Badge>
+          <Badge variant="outline">
+            <ShoppingCart className="h-3.5 w-3.5" /> Demanda: {currentDemand}
+          </Badge>
           {isConnected ? (
             <Badge variant="success"><Wifi className="h-3.5 w-3.5" /> Conectado</Badge>
           ) : (
@@ -210,6 +229,34 @@ export default function TestPage() {
       }
     >
       <SupplyChainStrip statuses={chainStatuses} statusText={chainText} className="mb-4" />
+
+      {/* KPI summary row */}
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-[var(--text-muted)]">Demanda consumidor</p>
+            <p className="text-lg font-bold">{currentDemand} uds</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-[var(--text-muted)]">Costo cadena</p>
+            <p className="text-lg font-bold text-[var(--accent)]">{formatCurrency(totalChainCost)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-[var(--text-muted)]">Costo almacenaje</p>
+            <p className="text-lg font-bold">${state.game.holdingCost}/ud</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-[var(--text-muted)]">Costo backlog</p>
+            <p className="text-lg font-bold">${state.game.backlogCost}/ud</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {error ? <p className="mb-3 text-sm text-[var(--danger)]">{error}</p> : null}
 
@@ -223,6 +270,13 @@ export default function TestPage() {
           const submitted = state.submissions
             ? state.submissions[role.toLowerCase() as keyof typeof state.submissions]
             : false;
+
+          // Pipeline items arriving to this role
+          const rolePipeline = (state.pipeline ?? [])
+            .filter((item) => item.toRole === role)
+            .sort((a, b) => a.arrivesInRounds - b.arrivesInRounds);
+
+          const totalInTransit = rolePipeline.reduce((sum, item) => sum + item.quantity, 0);
 
           return (
             <Card key={player.id} className={submitted ? "border-[#c7f2d6]" : ""}>
@@ -245,6 +299,23 @@ export default function TestPage() {
                   <p>Pedido recibido: <span className="font-semibold">{lastRound?.incomingOrder ?? 0}</span></p>
                   <p>Envío recibido: <span className="font-semibold">{lastRound?.incomingShipment ?? 0}</span></p>
                 </div>
+
+                {/* Pipeline — items in transit */}
+                {rolePipeline.length > 0 && (
+                  <div className="rounded-md border border-[var(--border-soft)] bg-[var(--bg-muted)] px-2.5 py-2">
+                    <p className="mb-1 flex items-center gap-1 text-xs font-semibold text-[var(--text-muted)]">
+                      <Package className="h-3 w-3" /> En tránsito ({totalInTransit} uds)
+                    </p>
+                    <div className="space-y-0.5 text-xs text-[var(--text-body)]">
+                      {rolePipeline.map((item, idx) => (
+                        <p key={idx}>
+                          {item.quantity} ud{item.quantity !== 1 ? "s" : ""} → llega
+                          {item.arrivesInRounds === 1 ? " próxima ronda" : ` en ${item.arrivesInRounds} rondas`}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
