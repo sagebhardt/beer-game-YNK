@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ROLES, UPSTREAM, DOWNSTREAM, type Role } from "@/lib/types";
+import { maybeUpdateBenchmark } from "@/lib/benchmark";
 
 const ROLE_SUBMIT_FIELD: Record<Role, string> = {
   RETAILER: "retailerSubmitted",
@@ -315,6 +316,13 @@ export async function processRound(gameId: string, roundNumber: number) {
       });
     }
   });
+
+  // After transaction: if game just completed, try to save as benchmark
+  if (roundNumber >= game.totalRounds) {
+    maybeUpdateBenchmark(gameId).catch((err) =>
+      console.error("Error updating benchmark:", err)
+    );
+  }
 }
 
 /**

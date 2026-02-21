@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ROLES, type Role } from "@/lib/types";
-import { computeOptimalCosts, type OptimalResult } from "@/lib/optimal-cost";
+import { loadBenchmark } from "@/lib/benchmark";
+import type { OptimalResult } from "@/lib/optimal-cost";
 
 function stddev(values: number[]) {
   if (values.length === 0) return 0;
@@ -88,21 +89,21 @@ export async function getGameAnalyticsByCode(code: string) {
   const totalChainCost = roleData.reduce((sum, row) => sum + row.totalCost, 0);
   const totalBacklogPeak = roleData.reduce((max, row) => Math.max(max, row.maxBacklog), 0);
 
-  // Compute optimal (perfect-information) costs for completed games
+  // Load best-game benchmark for completed games
   let optimal: OptimalResult | null = null;
   if (game.status === "COMPLETED") {
     try {
-      optimal = computeOptimalCosts({
-        demandPattern,
+      optimal = await loadBenchmark({
+        demandPattern: game.demandPattern,
         totalRounds: game.totalRounds,
-        startInventory: game.startInventory,
         holdingCost: game.holdingCost,
         backlogCost: game.backlogCost,
+        startInventory: game.startInventory,
         orderDelay: game.orderDelay,
         shippingDelay: game.shippingDelay,
       });
     } catch (e) {
-      console.error("Error computing optimal costs for admin analytics:", e);
+      console.error("Error loading benchmark for admin analytics:", e);
     }
   }
 
