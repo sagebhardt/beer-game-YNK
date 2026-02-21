@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionIdReadonly } from "@/lib/session";
+import { isAdminSession } from "@/lib/admin-auth";
 import { getHostState } from "@/lib/game-engine";
 import { computeOptimalCosts } from "@/lib/optimal-cost";
 
@@ -28,8 +29,9 @@ export async function GET(
     const inGame = !!sessionId && game.players.some((player) => player.sessionId === sessionId);
     const isHost = sessionId === game.hostSessionId;
     const isController = !!sessionId && sessionId === game.controllerSessionId;
+    const isAdmin = await isAdminSession();
 
-    if (!inGame && !isHost && !isController) {
+    if (!inGame && !isHost && !isController && !isAdmin) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 

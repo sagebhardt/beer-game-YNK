@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ROLES, type Role } from "@/lib/types";
+import { computeOptimalCosts, type OptimalResult } from "@/lib/optimal-cost";
 
 function stddev(values: number[]) {
   if (values.length === 0) return 0;
@@ -87,6 +88,24 @@ export async function getGameAnalyticsByCode(code: string) {
   const totalChainCost = roleData.reduce((sum, row) => sum + row.totalCost, 0);
   const totalBacklogPeak = roleData.reduce((max, row) => Math.max(max, row.maxBacklog), 0);
 
+  // Compute optimal (perfect-information) costs for completed games
+  let optimal: OptimalResult | null = null;
+  if (game.status === "COMPLETED") {
+    try {
+      optimal = computeOptimalCosts({
+        demandPattern,
+        totalRounds: game.totalRounds,
+        startInventory: game.startInventory,
+        holdingCost: game.holdingCost,
+        backlogCost: game.backlogCost,
+        orderDelay: game.orderDelay,
+        shippingDelay: game.shippingDelay,
+      });
+    } catch (e) {
+      console.error("Error computing optimal costs for admin analytics:", e);
+    }
+  }
+
   const roundsRows = roleData.flatMap((roleEntry) => {
     return roleEntry.rounds.map((row) => ({
       round: row.round,
@@ -119,6 +138,24 @@ export async function getGameAnalyticsByCode(code: string) {
     orderBy: [{ roundPlaced: "asc" }, { roundDue: "asc" }],
   });
 
+  // Enrich rounds with optimal data when available
+  const enrichedRoundsRows = roundsRows.map((row) => {
+    if (!optimal) return { ...row, optimalOrder: null, optimalInventory: null, optimalCost: null };
+    const optRound = optimal.perRole[row.role as Role]?.find((o) => o.round === row.round);
+    return {
+      ...row,
+      optimalOrder: optRound?.orderPlaced ?? null,
+      optimalInventory: optRound ? (optRound.inventoryAfter > 0 ? optRound.inventoryAfter : -optRound.backlogAfter) : null,
+      optimalCost: optRound?.totalCostCumulative ?? null,
+    };
+  });
+
+  const optimalChainCost = optimal?.totalChainCost ?? null;
+  const pctAboveOptimal =
+    optimalChainCost && optimalChainCost > 0 && Number.isFinite(totalChainCost / optimalChainCost)
+      ? ((totalChainCost / optimalChainCost - 1) * 100)
+      : null;
+
   return {
     game: {
       id: game.id,
@@ -141,6 +178,13 @@ export async function getGameAnalyticsByCode(code: string) {
       avgInventoryByRole: Object.fromEntries(roleData.map((row) => [row.role, row.avgInventory])),
       bullwhipByRole: Object.fromEntries(roleData.map((row) => [row.role, row.bullwhipIndex])),
     },
+    optimal: optimal
+      ? {
+          perRole: optimal.perRole,
+          perRoleTotalCost: optimal.perRoleTotalCost,
+          totalChainCost: optimal.totalChainCost,
+        }
+      : null,
     roles: roleData.map((row) => ({
       role: row.role,
       playerName: row.playerName,
@@ -158,13 +202,15 @@ export async function getGameAnalyticsByCode(code: string) {
           mode: game.mode,
           totalChainCost,
           totalBacklogPeak,
+          optimalChainCost: optimalChainCost ?? "",
+          pctAboveOptimal: pctAboveOptimal !== null ? pctAboveOptimal.toFixed(1) : "",
           currentRound: game.currentRound,
           totalRounds: game.totalRounds,
           endedReason: game.endedReason ?? "",
           endedAt: game.endedAt?.toISOString() ?? "",
         },
       ],
-      roundsRows,
+      roundsRows: enrichedRoundsRows,
       submissionsRows,
       pipelineRows: pipelineRows.map((row) => ({
         type: row.type,
