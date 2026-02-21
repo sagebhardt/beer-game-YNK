@@ -163,13 +163,13 @@ export default function ResultadosPage() {
         </Card>
         <Card>
           <CardContent className="py-4">
-            <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Costo óptimo cadena</p>
+            <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Costo sin efecto látigo</p>
             <p className="kpi-value mt-1 text-2xl font-bold text-emerald-600">
               {optimal ? formatCurrency(optimal.totalChainCost) : "–"}
             </p>
             {optimal && optimal.totalChainCost > 0 && Number.isFinite(totalChainCost / optimal.totalChainCost) && (
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                {((totalChainCost / optimal.totalChainCost - 1) * 100).toFixed(0)}% por encima del óptimo
+                {((totalChainCost / optimal.totalChainCost - 1) * 100).toFixed(0)}% sobre referencia
               </p>
             )}
           </CardContent>
