@@ -1,10 +1,15 @@
 /**
  * Compute the optimal (perfect-information) cost for the Beer Game.
  *
- * Assumes every role knows the exact consumer demand each round and
- * orders exactly that amount. The pipeline delays still apply, so
- * inventory can fluctuate during demand transitions — but there is
- * zero amplification (no bullwhip effect).
+ * With perfect information every role knows the entire future demand
+ * pattern. The optimal strategy is **forward-looking**: each role
+ * orders on round t what consumer demand will be on round t + L,
+ * where L = orderDelay + shippingDelay (the replenishment lead time).
+ * This way the right quantity arrives exactly when it is needed,
+ * minimising both holding and backlog costs during demand transitions.
+ *
+ * Pipeline initialization mirrors game-engine.ts initializeGame()
+ * exactly (2 items per type, arriving rounds 1 & 2).
  *
  * The simulation mirrors game-engine.ts processRound() logic:
  *   receive shipments → receive orders → ship → place orders → costs
@@ -81,6 +86,17 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
 
   const steadyDemand = demandPattern[0] ?? 4;
 
+  // Helper: get consumer demand for any round (clamped to pattern bounds)
+  function getDemand(round: number): number {
+    if (round < 1) return steadyDemand;
+    const idx = Math.min(round - 1, demandPattern.length - 1);
+    return demandPattern[idx] ?? steadyDemand;
+  }
+
+  // Replenishment lead time: how many rounds from placing an order
+  // until the resulting shipment arrives back
+  const leadTime = orderDelay + shippingDelay;
+
   // Initialize role states
   const state: Record<Role, RoleState> = {} as Record<Role, RoleState>;
   for (const role of ROLES) {
@@ -91,48 +107,37 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
     };
   }
 
-  // Initialize pipeline with steady-state items (mirrors initializeGame)
+  // Initialize pipeline with steady-state items — mirrors game-engine.ts
+  // initializeGame() exactly: always 2 items per type (roundDue 1 & 2)
   const pipeline: PipeItem[] = [];
 
-  // Pre-fill shipments in transit (2 per link, arriving rounds 1 & 2)
+  // Shipments in transit TO each downstream role (arriving rounds 1 & 2)
   for (const role of ROLES) {
     const downstream = DOWNSTREAM[role];
     if (downstream !== "CONSUMER") {
-      for (let r = 1; r <= shippingDelay; r++) {
-        pipeline.push({
-          type: "SHIPMENT",
-          toRole: downstream,
-          quantity: steadyDemand,
-          roundDue: r,
-        });
-      }
+      pipeline.push(
+        { type: "SHIPMENT", toRole: downstream as Role, quantity: steadyDemand, roundDue: 1 },
+        { type: "SHIPMENT", toRole: downstream as Role, quantity: steadyDemand, roundDue: 2 },
+      );
     }
   }
 
-  // Pre-fill orders in transit
+  // Orders in transit TO each upstream role (arriving rounds 1 & 2)
   for (const role of ROLES) {
     const upstream = UPSTREAM[role];
     if (upstream !== "PRODUCTION") {
-      for (let r = 1; r <= orderDelay; r++) {
-        pipeline.push({
-          type: "ORDER",
-          toRole: upstream,
-          quantity: steadyDemand,
-          roundDue: r,
-        });
-      }
+      pipeline.push(
+        { type: "ORDER", toRole: upstream as Role, quantity: steadyDemand, roundDue: 1 },
+        { type: "ORDER", toRole: upstream as Role, quantity: steadyDemand, roundDue: 2 },
+      );
     }
   }
 
-  // Pre-fill factory production in transit
-  for (let r = 1; r <= orderDelay + shippingDelay; r++) {
-    pipeline.push({
-      type: "PRODUCTION",
-      toRole: "FACTORY",
-      quantity: steadyDemand,
-      roundDue: r,
-    });
-  }
+  // Factory production in transit (arriving rounds 1 & 2)
+  pipeline.push(
+    { type: "PRODUCTION", toRole: "FACTORY", quantity: steadyDemand, roundDue: 1 },
+    { type: "PRODUCTION", toRole: "FACTORY", quantity: steadyDemand, roundDue: 2 },
+  );
 
   // Collect round data
   const perRole: Record<Role, OptimalRoundData[]> = {} as Record<Role, OptimalRoundData[]>;
@@ -142,8 +147,7 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
 
   // Simulate each round
   for (let round = 1; round <= totalRounds; round++) {
-    const demand =
-      demandPattern[round - 1] ?? demandPattern[demandPattern.length - 1] ?? 4;
+    const demand = getDemand(round);
 
     for (const role of ROLES) {
       const rs = state[role];
@@ -157,13 +161,12 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
         }
       }
 
-      // 2. RECEIVE ORDERS — with perfect info, every role sees the consumer demand
+      // 2. RECEIVE ORDERS
       let incomingOrder: number;
       if (role === "RETAILER") {
         incomingOrder = demand;
       } else {
-        // In optimal scenario, upstream receives the downstream's order
-        // which is exactly the demand (since downstream ordered demand)
+        // Upstream receives the order that downstream placed (via pipeline)
         let receivedOrders = 0;
         for (const item of pipeline) {
           if (item.type === "ORDER" && item.toRole === role && item.roundDue === round) {
@@ -175,24 +178,27 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
 
       // 3. SHIP
       const inventoryBefore = rs.inventory + incomingShipment;
-      const totalDemand = incomingOrder + rs.backlog;
-      const shipmentSent = Math.min(inventoryBefore, totalDemand);
+      const totalDemandThisRound = incomingOrder + rs.backlog;
+      const shipmentSent = Math.min(inventoryBefore, totalDemandThisRound);
       const inventoryAfter = inventoryBefore - shipmentSent;
-      const backlogAfter = totalDemand - shipmentSent;
+      const backlogAfter = totalDemandThisRound - shipmentSent;
 
       // Create shipment pipeline item (downstream delivery)
       const downstream = DOWNSTREAM[role];
       if (downstream !== "CONSUMER") {
         pipeline.push({
           type: "SHIPMENT",
-          toRole: downstream,
+          toRole: downstream as Role,
           quantity: shipmentSent,
           roundDue: round + shippingDelay,
         });
       }
 
-      // 4. PLACE ORDERS — optimal: order exactly the consumer demand
-      const orderPlaced = demand;
+      // 4. PLACE ORDERS — forward-looking: order what demand will be
+      //    when this order materialises into a received shipment
+      const futureDemand = getDemand(round + leadTime);
+      const orderPlaced = futureDemand;
+
       const upstream = UPSTREAM[role];
       if (upstream === "PRODUCTION") {
         pipeline.push({
@@ -204,7 +210,7 @@ export function computeOptimalCosts(params: OptimalParams): OptimalResult {
       } else {
         pipeline.push({
           type: "ORDER",
-          toRole: upstream,
+          toRole: upstream as Role,
           quantity: orderPlaced,
           roundDue: round + orderDelay,
         });
