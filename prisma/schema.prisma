@@ -106,3 +106,17 @@ model Round {
 
   @@unique([gameId, round])
 }
+
+// Best completed game for each unique configuration.
+// Updated whenever a game finishes with lower total chain cost.
+model Benchmark {
+  id              String   @id @default(cuid())
+  configHash      String   @unique  // MD5 of {demandPattern, totalRounds, holdingCost, backlogCost, startInventory, orderDelay, shippingDelay}
+  gameCode        String             // accessCode of the source game
+  totalChainCost  Float
+  costsByRole     String   @default("{}")  // JSON: { RETAILER: n, WHOLESALER: n, ... }
+  perRoleData     String   @default("{}")  // JSON: OptimalResult.perRole shape
+  completedAt     DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

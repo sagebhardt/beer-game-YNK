@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSessionIdReadonly } from "@/lib/session";
 import { isAdminSession } from "@/lib/admin-auth";
 import { getHostState } from "@/lib/game-engine";
-import { computeOptimalCosts } from "@/lib/optimal-cost";
+import { loadBenchmark } from "@/lib/benchmark";
 
 export async function GET(
   _request: Request,
@@ -44,8 +44,7 @@ export async function GET(
 
     const state = await getHostState(game.id);
 
-    // Compute optimal (perfect-information) costs — wrapped in try-catch
-    // so the results page still works even if computation fails
+    // Load best-game benchmark for this configuration
     let optimalPayload: {
       perRole: Record<string, unknown[]>;
       perRoleTotalCost: Record<string, number>;
@@ -53,23 +52,24 @@ export async function GET(
     } | null = null;
 
     try {
-      const demandPattern: number[] = JSON.parse(game.demandPattern);
-      const optimal = computeOptimalCosts({
-        demandPattern,
+      const benchmark = await loadBenchmark({
+        demandPattern: game.demandPattern,
         totalRounds: game.totalRounds,
-        startInventory: game.startInventory,
         holdingCost: game.holdingCost,
         backlogCost: game.backlogCost,
+        startInventory: game.startInventory,
         orderDelay: game.orderDelay,
         shippingDelay: game.shippingDelay,
       });
-      optimalPayload = {
-        perRole: optimal.perRole,
-        perRoleTotalCost: optimal.perRoleTotalCost,
-        totalChainCost: optimal.totalChainCost,
-      };
+      if (benchmark) {
+        optimalPayload = {
+          perRole: benchmark.perRole,
+          perRoleTotalCost: benchmark.perRoleTotalCost,
+          totalChainCost: benchmark.totalChainCost,
+        };
+      }
     } catch (e) {
-      console.error("Error computing optimal costs:", e);
+      console.error("Error loading benchmark:", e);
     }
 
     return NextResponse.json({

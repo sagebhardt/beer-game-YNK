@@ -115,7 +115,7 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
       ...(optimal
         ? [
             {
-              label: "Pedido óptimo",
+              label: "Pedido récord",
               data: rounds.map((r) => getOptimalRound("RETAILER", r)?.orderPlaced ?? null),
               borderColor: "#10b981",
               borderDash: [8, 4],
@@ -149,7 +149,7 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
       // Optimal inventory lines per role
       ...(optimal
         ? ROLES.map((role) => ({
-            label: `${ROLE_LABELS[role]} óptimo`,
+            label: `${ROLE_LABELS[role]} récord`,
             data: rounds.map((r) => {
               const ord = getOptimalRound(role, r);
               if (!ord) return null;
@@ -185,7 +185,7 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
       // Optimal cost lines per role
       ...(optimal
         ? ROLES.map((role) => ({
-            label: `${ROLE_LABELS[role]} óptimo`,
+            label: `${ROLE_LABELS[role]} récord`,
             data: rounds.map((r) => {
               const ord = getOptimalRound(role, r);
               return ord?.totalCostCumulative ?? null;
