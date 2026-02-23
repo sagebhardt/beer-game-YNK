@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Beer, Copy, Check, Eye, Users, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -66,87 +66,73 @@ export default function LobbyPage() {
   }, [code, router]);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/session").then((r) => r.json()),
-      fetch(`/api/games/${code}`).then((r) => r.json()),
-    ]).then(([sessionData, gameData]) => {
-      if (sessionData.sessionId) setSessionId(sessionData.sessionId);
-
-      if (gameData.game?.mode === "TEST") {
-        router.push(`/juego/${code}/test`);
-        return;
-      }
-
-      if (gameData.game?.status === "ACTIVE") {
-        if (gameData.currentPlayer?.isSpectator || gameData.isSpectator) {
-          router.push(`/juego/${code}/spectate`);
-        } else {
-          router.push(`/juego/${code}/jugar`);
-        }
-        return;
-      }
-      setPlayers(gameData.players || []);
-      setIsHost(gameData.isHost || false);
-      setIsCurrentSpectator(gameData.currentPlayer?.isSpectator || false);
-      setCurrentPlayerId(gameData.currentPlayer?.id || null);
-    });
-  }, [code, router]);
+    fetch("/api/session")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.sessionId) setSessionId(data.sessionId);
+      });
+    fetchState();
+  }, [fetchState]);
 
   useEffect(() => {
     if (!socket) return;
 
-    socket.on(S2C.LOBBY_STATE, ({ players: p }: { players: LobbyPlayer[] }) => {
+    const handleLobbyState = ({ players: p }: { players: LobbyPlayer[] }) => {
       setPlayers(p);
-    });
+    };
 
-    socket.on(S2C.PLAYER_JOINED, (player: LobbyPlayer) => {
+    const handlePlayerJoined = (player: LobbyPlayer) => {
       setPlayers((prev) => {
         if (prev.find((p) => p.id === player.id)) return prev;
         return [...prev, player];
       });
-    });
+    };
 
-    socket.on(S2C.PLAYER_LEFT, ({ playerId }: { playerId: string }) => {
+    const handlePlayerLeft = ({ playerId }: { playerId: string }) => {
       setPlayers((prev) =>
         prev.map((p) =>
           p.id === playerId ? { ...p, isConnected: false } : p
         )
       );
-    });
+    };
 
-    socket.on(
-      S2C.ROLE_SELECTED,
-      ({ playerId, role }: { playerId: string; playerName: string; role: string }) => {
-        setPlayers((prev) =>
-          prev.map((p) => {
-            if (p.role === role && p.id !== playerId) return { ...p, role: "" };
-            if (p.id === playerId) return { ...p, role };
-            return p;
-          })
-        );
-      }
-    );
+    const handleRoleSelected = ({ playerId, role }: { playerId: string; playerName: string; role: string }) => {
+      setPlayers((prev) =>
+        prev.map((p) => {
+          if (p.role === role && p.id !== playerId) return { ...p, role: "" };
+          if (p.id === playerId) return { ...p, role };
+          return p;
+        })
+      );
+    };
 
-    socket.on(S2C.GAME_STARTED, () => {
+    const handleGameStarted = () => {
       if (isCurrentSpectator) {
         router.push(`/juego/${code}/spectate`);
       } else {
         router.push(`/juego/${code}/jugar`);
       }
-    });
+    };
 
-    socket.on(S2C.ERROR, ({ message }: { message: string }) => {
+    const handleError = ({ message }: { message: string }) => {
       setError(message);
       setTimeout(() => setError(""), 3000);
-    });
+    };
+
+    socket.on(S2C.LOBBY_STATE, handleLobbyState);
+    socket.on(S2C.PLAYER_JOINED, handlePlayerJoined);
+    socket.on(S2C.PLAYER_LEFT, handlePlayerLeft);
+    socket.on(S2C.ROLE_SELECTED, handleRoleSelected);
+    socket.on(S2C.GAME_STARTED, handleGameStarted);
+    socket.on(S2C.ERROR, handleError);
 
     return () => {
-      socket.off(S2C.LOBBY_STATE);
-      socket.off(S2C.PLAYER_JOINED);
-      socket.off(S2C.PLAYER_LEFT);
-      socket.off(S2C.ROLE_SELECTED);
-      socket.off(S2C.GAME_STARTED);
-      socket.off(S2C.ERROR);
+      socket.off(S2C.LOBBY_STATE, handleLobbyState);
+      socket.off(S2C.PLAYER_JOINED, handlePlayerJoined);
+      socket.off(S2C.PLAYER_LEFT, handlePlayerLeft);
+      socket.off(S2C.ROLE_SELECTED, handleRoleSelected);
+      socket.off(S2C.GAME_STARTED, handleGameStarted);
+      socket.off(S2C.ERROR, handleError);
     };
   }, [socket, code, router, isCurrentSpectator]);
 
@@ -186,21 +172,29 @@ export default function LobbyPage() {
 
   const currentPlayerRole = (activePlayers.find((p) => p.id === currentPlayerId)?.role as Role | undefined) ?? null;
 
-  const chainStatuses = Object.fromEntries(
-    ROLES.map((role) => {
-      const assigned = activePlayers.find((p) => p.role === role);
-      if (!assigned) return [role, "warn"];
-      return [role, assigned.isConnected ? "ok" : "danger"];
-    })
-  ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>;
+  const chainStatuses = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const assigned = activePlayers.find((p) => p.role === role);
+          if (!assigned) return [role, "warn"];
+          return [role, assigned.isConnected ? "ok" : "danger"];
+        })
+      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
+    [activePlayers]
+  );
 
-  const chainText = Object.fromEntries(
-    ROLES.map((role) => {
-      const assigned = activePlayers.find((p) => p.role === role);
-      if (!assigned) return [role, "Sin asignar"];
-      return [role, assigned.name];
-    })
-  ) as Partial<Record<Role, string>>;
+  const chainText = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const assigned = activePlayers.find((p) => p.role === role);
+          if (!assigned) return [role, "Sin asignar"];
+          return [role, assigned.name];
+        })
+      ) as Partial<Record<Role, string>>,
+    [activePlayers]
+  );
 
   return (
     <PageShell

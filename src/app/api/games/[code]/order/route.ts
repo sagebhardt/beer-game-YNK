@@ -107,8 +107,8 @@ export async function POST(
       },
     });
 
-    // Mark submission
-    await prisma.round.update({
+    // Mark submission and get updated round in one operation
+    const updatedRound = await prisma.round.update({
       where: { gameId_round: { gameId: game.id, round: currentRound } },
       data: { [ROLE_SUBMIT_FIELD[role]]: true },
     });
@@ -120,11 +120,7 @@ export async function POST(
       await emitAdminGameUpsert(io, code);
     }
 
-    // Check if all 4 have submitted
-    const updatedRound = await prisma.round.findUniqueOrThrow({
-      where: { gameId_round: { gameId: game.id, round: currentRound } },
-    });
-
+    // Check if all 4 have submitted (using the returned updatedRound)
     const allSubmitted =
       updatedRound.retailerSubmitted &&
       updatedRound.wholesalerSubmitted &&
@@ -134,16 +130,12 @@ export async function POST(
     if (allSubmitted) {
       await processRound(game.id, currentRound);
 
-      const updatedGame = await prisma.game.findUniqueOrThrow({
-        where: { id: game.id },
-      });
-
       if (io) {
-        if (updatedGame.status === "COMPLETED") {
+        if (currentRound >= game.totalRounds) {
           io.to(code).emit(S2C.GAME_ENDED, {});
         } else {
           io.to(code).emit(S2C.ROUND_ADVANCED, {
-            round: updatedGame.currentRound,
+            round: currentRound + 1,
           });
         }
         await emitAdminGameUpsert(io, code);

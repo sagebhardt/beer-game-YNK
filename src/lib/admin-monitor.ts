@@ -32,40 +32,38 @@ function countAssignedRoles(roles: string[]) {
   return assigned.size;
 }
 
-async function getSubmissionSummary(gameId: string, currentRound: number) {
-  if (currentRound <= 0) return null;
+function toSummaryWithRound(
+  game: {
+    id: string;
+    accessCode: string;
+    name: string;
+    status: string;
+    mode: string;
+    currentRound: number;
+    totalRounds: number;
+    players: Array<{ role: string }>;
+    updatedAt: Date;
+    createdAt: Date;
+    endedAt: Date | null;
+  },
+  round: {
+    retailerSubmitted: boolean;
+    wholesalerSubmitted: boolean;
+    distributorSubmitted: boolean;
+    factorySubmitted: boolean;
+  } | null,
+): AdminGameSummary {
+  const submissions = round
+    ? {
+        ready:
+          Number(round.retailerSubmitted) +
+          Number(round.wholesalerSubmitted) +
+          Number(round.distributorSubmitted) +
+          Number(round.factorySubmitted),
+        total: 4,
+      }
+    : null;
 
-  const round = await prisma.round.findUnique({
-    where: { gameId_round: { gameId, round: currentRound } },
-  });
-
-  if (!round) return null;
-
-  const ready =
-    Number(round.retailerSubmitted) +
-    Number(round.wholesalerSubmitted) +
-    Number(round.distributorSubmitted) +
-    Number(round.factorySubmitted);
-
-  return {
-    ready,
-    total: 4,
-  };
-}
-
-async function toSummary(game: {
-  id: string;
-  accessCode: string;
-  name: string;
-  status: string;
-  mode: string;
-  currentRound: number;
-  totalRounds: number;
-  players: Array<{ role: string }>;
-  updatedAt: Date;
-  createdAt: Date;
-  endedAt: Date | null;
-}): Promise<AdminGameSummary> {
   return {
     id: game.id,
     accessCode: game.accessCode,
@@ -79,7 +77,7 @@ async function toSummary(game: {
     updatedAt: game.updatedAt.toISOString(),
     createdAt: game.createdAt.toISOString(),
     endedAt: game.endedAt?.toISOString() ?? null,
-    submissions: await getSubmissionSummary(game.id, game.currentRound),
+    submissions,
   };
 }
 
@@ -96,7 +94,14 @@ export async function getAdminGameSummaryByCode(code: string) {
   });
 
   if (!game) return null;
-  return toSummary(game);
+
+  const round = game.currentRound > 0
+    ? await prisma.round.findUnique({
+        where: { gameId_round: { gameId: game.id, round: game.currentRound } },
+      })
+    : null;
+
+  return toSummaryWithRound(game, round);
 }
 
 export async function getAdminDashboardGames(filters?: {
@@ -134,7 +139,25 @@ export async function getAdminDashboardGames(filters?: {
     },
   });
 
-  return Promise.all(games.map((game) => toSummary(game)));
+  // Batch-fetch all current round records instead of N+1
+  const activeGames = games.filter((g) => g.currentRound > 0);
+  const roundRecords = activeGames.length > 0
+    ? await prisma.round.findMany({
+        where: {
+          OR: activeGames.map((g) => ({
+            gameId: g.id,
+            round: g.currentRound,
+          })),
+        },
+      })
+    : [];
+
+  const roundMap = new Map(roundRecords.map((r) => [`${r.gameId}:${r.round}`, r]));
+
+  return games.map((game) => {
+    const round = roundMap.get(`${game.id}:${game.currentRound}`) ?? null;
+    return toSummaryWithRound(game, round);
+  });
 }
 
 export async function getAdminGameDetailByCode(code: string) {
@@ -155,19 +178,39 @@ export async function getAdminGameDetailByCode(code: string) {
   };
 }
 
-export async function emitAdminGameUpsert(
+// Debounce map: gameCode -> timeout handle
+const pendingAdminEmits = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Debounced admin broadcast. Batches calls within 300ms so rapid-fire
+ * events (e.g., 4 order submissions) only trigger one DB query + emit.
+ */
+export function emitAdminGameUpsert(
   io: SocketIOServer,
   code: string
 ) {
-  const summary = await getAdminGameSummaryByCode(code);
-  if (!summary) return;
+  const existing = pendingAdminEmits.get(code);
+  if (existing) clearTimeout(existing);
 
-  io.to(ADMIN_DASHBOARD_ROOM).emit("admin-game-upsert", summary);
+  pendingAdminEmits.set(
+    code,
+    setTimeout(async () => {
+      pendingAdminEmits.delete(code);
+      try {
+        const summary = await getAdminGameSummaryByCode(code);
+        if (!summary) return;
 
-  const detail = await getAdminGameDetailByCode(code);
-  if (detail) {
-    io.to(adminGameRoom(code)).emit("admin-game-detail", detail);
-  }
+        io.to(ADMIN_DASHBOARD_ROOM).emit("admin-game-upsert", summary);
+
+        const detail = await getAdminGameDetailByCode(code);
+        if (detail) {
+          io.to(adminGameRoom(code)).emit("admin-game-detail", detail);
+        }
+      } catch (err) {
+        console.error("[admin-monitor] Error emitting update for", code, err);
+      }
+    }, 300)
+  );
 }
 
 export function emitAdminGameRemoved(io: SocketIOServer, code: string) {

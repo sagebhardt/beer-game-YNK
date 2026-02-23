@@ -9,7 +9,20 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
-import { ResultsCharts, type OptimalData } from "@/components/game/results-charts";
+import dynamic from "next/dynamic";
+import type { OptimalData } from "@/components/game/results-charts";
+
+const ResultsCharts = dynamic(
+  () => import("@/components/game/results-charts").then((mod) => mod.ResultsCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-xl border border-[var(--border-soft)] p-6 text-center text-sm text-[var(--text-muted)]">
+        Cargando gráficos...
+      </div>
+    ),
+  }
+);
 import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
 import { PageShell } from "@/components/layout/page-shell";
 

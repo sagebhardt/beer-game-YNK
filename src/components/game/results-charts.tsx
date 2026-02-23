@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -80,15 +81,30 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
     );
   }
 
-  const rounds = Array.from({ length: totalRounds }, (_, i) => i + 1);
+  const rounds = useMemo(
+    () => Array.from({ length: totalRounds }, (_, i) => i + 1),
+    [totalRounds]
+  );
 
-  // Helper: get optimal round data for a role
-  const getOptimalRound = (role: string, round: number) =>
-    optimal?.perRole[role]?.find((d) => d.round === round);
+  // Pre-index round data into Maps for O(1) lookups instead of O(n) .find()
+  const playerRoundMaps = useMemo(() => {
+    const maps = new Map<string, Map<number, ResultsPlayer["roundData"][0]>>();
+    for (const player of players) {
+      maps.set(player.role, new Map(player.roundData.map((rd) => [rd.round, rd])));
+    }
+    return maps;
+  }, [players]);
 
-  // Bullwhip Chart: Orders placed by each role vs consumer demand
-  // Optimal line = demand (all roles order exactly the demand)
-  const bullwhipData = {
+  const optimalRoundMaps = useMemo(() => {
+    if (!optimal) return null;
+    const maps = new Map<string, Map<number, NonNullable<typeof optimal>["perRole"][string][0]>>();
+    for (const [role, data] of Object.entries(optimal.perRole)) {
+      maps.set(role, new Map(data.map((d) => [d.round, d])));
+    }
+    return maps;
+  }, [optimal]);
+
+  const bullwhipData = useMemo(() => ({
     labels: rounds.map((r) => `${r}`),
     datasets: [
       {
@@ -102,21 +118,17 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
       },
       ...players.map((player) => ({
         label: ROLE_LABELS[player.role as Role] || player.role,
-        data: rounds.map((r) => {
-          const rd = player.roundData.find((d) => d.round === r);
-          return rd?.orderPlaced ?? null;
-        }),
+        data: rounds.map((r) => playerRoundMaps.get(player.role)?.get(r)?.orderPlaced ?? null),
         borderColor: ROLE_COLORS[player.role] || "#6b7280",
         borderWidth: 2,
         pointRadius: 1,
         tension: 0.2,
       })),
-      // Optimal order line (same for all roles = demand)
-      ...(optimal
+      ...(optimalRoundMaps
         ? [
             {
               label: "Pedido récord",
-              data: rounds.map((r) => getOptimalRound("RETAILER", r)?.orderPlaced ?? null),
+              data: rounds.map((r) => optimalRoundMaps.get("RETAILER")?.get(r)?.orderPlaced ?? null),
               borderColor: "#10b981",
               borderDash: [8, 4],
               borderWidth: 2,
@@ -126,16 +138,15 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
           ]
         : []),
     ],
-  };
+  }), [rounds, demandPattern, players, playerRoundMaps, optimalRoundMaps]);
 
-  // Inventory Chart — add optimal inventory per role
-  const inventoryData = {
+  const inventoryData = useMemo(() => ({
     labels: rounds.map((r) => `${r}`),
     datasets: [
       ...players.map((player) => ({
         label: ROLE_LABELS[player.role as Role] || player.role,
         data: rounds.map((r) => {
-          const rd = player.roundData.find((d) => d.round === r);
+          const rd = playerRoundMaps.get(player.role)?.get(r);
           if (!rd) return null;
           return rd.inventoryAfter > 0
             ? rd.inventoryAfter
@@ -146,12 +157,11 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
         pointRadius: 1,
         tension: 0.2,
       })),
-      // Optimal inventory lines per role
-      ...(optimal
+      ...(optimalRoundMaps
         ? ROLES.map((role) => ({
             label: `${ROLE_LABELS[role]} récord`,
             data: rounds.map((r) => {
-              const ord = getOptimalRound(role, r);
+              const ord = optimalRoundMaps.get(role)?.get(r);
               if (!ord) return null;
               return ord.inventoryAfter > 0
                 ? ord.inventoryAfter
@@ -165,31 +175,23 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
           }))
         : []),
     ],
-  };
+  }), [rounds, players, playerRoundMaps, optimalRoundMaps]);
 
-  // Cost Chart — add optimal cost line per role
-  const costData = {
+  const costData = useMemo(() => ({
     labels: rounds.map((r) => `${r}`),
     datasets: [
       ...players.map((player) => ({
         label: ROLE_LABELS[player.role as Role] || player.role,
-        data: rounds.map((r) => {
-          const rd = player.roundData.find((d) => d.round === r);
-          return rd?.totalCostCumulative ?? null;
-        }),
+        data: rounds.map((r) => playerRoundMaps.get(player.role)?.get(r)?.totalCostCumulative ?? null),
         borderColor: ROLE_COLORS[player.role] || "#6b7280",
         borderWidth: 2,
         pointRadius: 1,
         tension: 0.2,
       })),
-      // Optimal cost lines per role
-      ...(optimal
+      ...(optimalRoundMaps
         ? ROLES.map((role) => ({
             label: `${ROLE_LABELS[role]} récord`,
-            data: rounds.map((r) => {
-              const ord = getOptimalRound(role, r);
-              return ord?.totalCostCumulative ?? null;
-            }),
+            data: rounds.map((r) => optimalRoundMaps.get(role)?.get(r)?.totalCostCumulative ?? null),
             borderColor: ROLE_COLORS[role] || "#6b7280",
             borderDash: [8, 4] as number[],
             borderWidth: 1.5,
@@ -198,7 +200,7 @@ export function ResultsCharts({ players, demandPattern, totalRounds, optimal }: 
           }))
         : []),
     ],
-  };
+  }), [rounds, players, playerRoundMaps, optimalRoundMaps]);
 
   const commonOptions = {
     responsive: true,

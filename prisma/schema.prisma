@@ -53,6 +53,7 @@ model Player {
 
   @@unique([gameId, sessionId])
   @@index([sessionId])
+  @@index([gameId])
 }
 
 model PlayerRound {
@@ -106,6 +107,7 @@ model Round {
   game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
   @@unique([gameId, round])
+  @@index([gameId])
 }
 
 // Best completed game for each unique configuration.

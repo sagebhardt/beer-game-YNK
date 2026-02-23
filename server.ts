@@ -5,6 +5,8 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import next from "next";
 import { Server as SocketIOServer } from "socket.io";
+import compression from "compression";
+import type { IncomingMessage, ServerResponse } from "http";
 import { setupSocketHandlers } from "./src/lib/socket-handlers";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -31,13 +33,24 @@ const app = next({ dev, dir });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
+  // compression() types expect Express req/res but works fine with raw Node HTTP
+  const compress = compression() as (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: () => void,
+  ) => void;
+
   const httpServer = createServer((req, res) => {
-    const parsedUrl = parse(req.url!, true);
-    handle(req, res, parsedUrl);
+    compress(req, res, () => {
+      const parsedUrl = parse(req.url!, true);
+      handle(req, res, parsedUrl);
+    });
   });
 
   const io = new SocketIOServer(httpServer, {
     path: "/api/socketio",
+    serveClient: false,
+    transports: ["websocket", "polling"],
     cors: {
       origin: dev ? "http://localhost:3000" : undefined,
       methods: ["GET", "POST"],

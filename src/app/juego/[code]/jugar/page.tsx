@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Beer,
@@ -121,22 +121,20 @@ export default function JugarPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on(S2C.ORDER_SUBMITTED, () => {
-      fetchState();
-    });
-
-    socket.on(S2C.ROUND_ADVANCED, () => {
-      fetchState();
-    });
-
-    socket.on(S2C.GAME_ENDED, () => {
+    const handleOrderSubmitted = () => fetchState();
+    const handleRoundAdvanced = () => fetchState();
+    const handleGameEnded = () => {
       router.push(`/juego/${code}/resultados`);
-    });
+    };
+
+    socket.on(S2C.ORDER_SUBMITTED, handleOrderSubmitted);
+    socket.on(S2C.ROUND_ADVANCED, handleRoundAdvanced);
+    socket.on(S2C.GAME_ENDED, handleGameEnded);
 
     return () => {
-      socket.off(S2C.ORDER_SUBMITTED);
-      socket.off(S2C.ROUND_ADVANCED);
-      socket.off(S2C.GAME_ENDED);
+      socket.off(S2C.ORDER_SUBMITTED, handleOrderSubmitted);
+      socket.off(S2C.ROUND_ADVANCED, handleRoundAdvanced);
+      socket.off(S2C.GAME_ENDED, handleGameEnded);
     };
   }, [socket, code, router, fetchState]);
 
@@ -190,22 +188,30 @@ export default function JugarPage() {
   const lastRound = roundHistory.length > 0 ? roundHistory[roundHistory.length - 1] : null;
   const inTransit = pipeline.reduce((acc, p) => acc + p.quantity, 0);
 
-  const chainStatus = Object.fromEntries(
-    ROLES.map((r) => {
-      const submitted = submissions ? submissions[r.toLowerCase() as keyof typeof submissions] : false;
-      return [r, submitted ? "ok" : "warn"];
-    })
-  ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>;
+  const chainStatus = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((r) => {
+          const submitted = submissions ? submissions[r.toLowerCase() as keyof typeof submissions] : false;
+          return [r, submitted ? "ok" : "warn"];
+        })
+      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
+    [submissions]
+  );
 
-  const chainText = Object.fromEntries(
-    ROLES.map((r) => {
-      if (r === role) {
-        return [r, hasSubmittedThisRound ? "Pedido enviado" : "Pendiente de enviar"];
-      }
-      const submitted = submissions ? submissions[r.toLowerCase() as keyof typeof submissions] : false;
-      return [r, submitted ? "Listo" : "Esperando"];
-    })
-  ) as Partial<Record<Role, string>>;
+  const chainText = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((r) => {
+          if (r === role) {
+            return [r, hasSubmittedThisRound ? "Pedido enviado" : "Pendiente de enviar"];
+          }
+          const submitted = submissions ? submissions[r.toLowerCase() as keyof typeof submissions] : false;
+          return [r, submitted ? "Listo" : "Esperando"];
+        })
+      ) as Partial<Record<Role, string>>,
+    [submissions, role, hasSubmittedThisRound]
+  );
 
   return (
     <PageShell
