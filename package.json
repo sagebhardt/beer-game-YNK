@@ -10,13 +10,14 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "build:server": "esbuild server.ts --bundle --platform=node --target=node22 --outfile=custom-server.js --external:next --external:socket.io --external:@prisma/client"
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node22 --outfile=custom-server.js --external:next --external:socket.io --external:@prisma/client --external:compression"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
     "chart.js": "^4.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "compression": "^1.8.1",
     "lucide-react": "^0.564.0",
     "next": "^16.1.6",
     "react": "^19.2.4",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/compression": "^1.8.1",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.14",
     "esbuild": "^0.27.3",

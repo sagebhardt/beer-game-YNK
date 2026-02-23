@@ -27,26 +27,24 @@ export async function initializeGame(gameId: string) {
   const steadyFlow = 4; // standard Beer Game steady-state flow
 
   await prisma.$transaction(async (tx) => {
-    // Create round-0 snapshot for each player (starting state)
-    for (const player of players) {
-      await tx.playerRound.create({
-        data: {
-          playerId: player.id,
-          round: 0,
-          inventoryBefore: game.startInventory,
-          backlogBefore: 0,
-          incomingOrder: 0,
-          incomingShipment: 0,
-          orderPlaced: 0,
-          shipmentSent: 0,
-          inventoryAfter: game.startInventory,
-          backlogAfter: 0,
-          holdingCost: 0,
-          backlogCost: 0,
-          totalCostCumulative: 0,
-        },
-      });
-    }
+    // Create round-0 snapshots for all players in one batch
+    await tx.playerRound.createMany({
+      data: players.map((player) => ({
+        playerId: player.id,
+        round: 0,
+        inventoryBefore: game.startInventory,
+        backlogBefore: 0,
+        incomingOrder: 0,
+        incomingShipment: 0,
+        orderPlaced: 0,
+        shipmentSent: 0,
+        inventoryAfter: game.startInventory,
+        backlogAfter: 0,
+        holdingCost: 0,
+        backlogCost: 0,
+        totalCostCumulative: 0,
+      })),
+    });
 
     // Pre-fill pipeline with steady-state items already in transit
     const pipelineItems: Array<{
@@ -136,9 +134,7 @@ export async function initializeGame(gameId: string) {
       }
     );
 
-    for (const item of pipelineItems) {
-      await tx.pipelineItem.create({ data: item });
-    }
+    await tx.pipelineItem.createMany({ data: pipelineItems });
 
     // Create Round 1 record
     await tx.round.create({
@@ -166,49 +162,77 @@ export async function processRound(gameId: string, roundNumber: number) {
   const players = game.players.filter((p) => ROLES.includes(p.role as Role));
 
   await prisma.$transaction(async (tx) => {
+    // ---- BATCH FETCH: all data needed for this round ----
+    const playerIds = players.map((p) => p.id);
+
+    // 1. Fetch ALL prev-round and current-round PlayerRounds in one query
+    const allPlayerRounds = await tx.playerRound.findMany({
+      where: {
+        playerId: { in: playerIds },
+        round: { in: [roundNumber - 1, roundNumber] },
+      },
+    });
+
+    const prevRoundMap = new Map(
+      allPlayerRounds
+        .filter((pr) => pr.round === roundNumber - 1)
+        .map((pr) => [pr.playerId, pr])
+    );
+    const currentRoundMap = new Map(
+      allPlayerRounds
+        .filter((pr) => pr.round === roundNumber)
+        .map((pr) => [pr.playerId, pr])
+    );
+
+    // 2. Fetch ALL pipeline items arriving this round in one query
+    const allArrivingItems = await tx.pipelineItem.findMany({
+      where: { gameId, roundDue: roundNumber },
+    });
+
+    // Group by toRole for O(1) lookups
+    const itemsByRole = new Map<string, typeof allArrivingItems>();
+    for (const item of allArrivingItems) {
+      const existing = itemsByRole.get(item.toRole) ?? [];
+      existing.push(item);
+      itemsByRole.set(item.toRole, existing);
+    }
+
+    // ---- PROCESS EACH PLAYER (in-memory, no additional reads) ----
+    const newPipelineItems: Array<{
+      gameId: string;
+      type: string;
+      fromRole: string;
+      toRole: string;
+      quantity: number;
+      roundPlaced: number;
+      roundDue: number;
+    }> = [];
+
     for (const player of players) {
       const role = player.role as Role;
+      const prevRound = prevRoundMap.get(player.id);
+      const currentRound = currentRoundMap.get(player.id);
 
-      // Get previous round's end state
-      const prevRound = await tx.playerRound.findUniqueOrThrow({
-        where: { playerId_round: { playerId: player.id, round: roundNumber - 1 } },
-      });
-
-      // Get this round's order (already saved when player submitted)
-      const currentRound = await tx.playerRound.findUniqueOrThrow({
-        where: { playerId_round: { playerId: player.id, round: roundNumber } },
-      });
+      if (!prevRound) throw new Error(`Missing prev round for ${player.id}`);
+      if (!currentRound) throw new Error(`Missing current round for ${player.id}`);
 
       const orderPlaced = currentRound.orderPlaced ?? 0;
 
-      // 1. RECEIVE SHIPMENTS
+      // 1. RECEIVE SHIPMENTS (from in-memory data)
+      const roleItems = itemsByRole.get(role) ?? [];
       const shipmentTypes = role === "FACTORY" ? ["SHIPMENT", "PRODUCTION"] : ["SHIPMENT"];
-      const incomingShipments = await tx.pipelineItem.findMany({
-        where: {
-          gameId,
-          type: { in: shipmentTypes },
-          toRole: role,
-          roundDue: roundNumber,
-        },
-      });
-      const incomingShipment = incomingShipments.reduce((sum, s) => sum + s.quantity, 0);
+      const incomingShipment = roleItems
+        .filter((item) => shipmentTypes.includes(item.type))
+        .reduce((sum, s) => sum + s.quantity, 0);
 
-      // 2. RECEIVE ORDERS
+      // 2. RECEIVE ORDERS (from in-memory data)
       let incomingOrder: number;
       if (role === "RETAILER") {
-        // Consumer demand
         incomingOrder = demandPattern[roundNumber - 1] ?? demandPattern[demandPattern.length - 1] ?? 4;
       } else {
-        // Orders from downstream (that were placed orderDelay rounds ago)
-        const incomingOrders = await tx.pipelineItem.findMany({
-          where: {
-            gameId,
-            type: "ORDER",
-            toRole: role,
-            roundDue: roundNumber,
-          },
-        });
-        incomingOrder = incomingOrders.reduce((sum, o) => sum + o.quantity, 0);
+        incomingOrder = roleItems
+          .filter((item) => item.type === "ORDER")
+          .reduce((sum, o) => sum + o.quantity, 0);
       }
 
       // 3. CALCULATE AND SHIP
@@ -219,49 +243,41 @@ export async function processRound(gameId: string, roundNumber: number) {
       const inventoryAfter = inventoryBefore - shipmentSent;
       const backlogAfter = totalDemand - shipmentSent;
 
-      // Create shipment pipeline item (downstream delivery)
+      // Collect shipment pipeline item (batch-create later)
       const downstream = DOWNSTREAM[role];
       if (downstream !== "CONSUMER") {
-        await tx.pipelineItem.create({
-          data: {
-            gameId,
-            type: "SHIPMENT",
-            fromRole: role,
-            toRole: downstream,
-            quantity: shipmentSent,
-            roundPlaced: roundNumber,
-            roundDue: roundNumber + game.shippingDelay,
-          },
+        newPipelineItems.push({
+          gameId,
+          type: "SHIPMENT",
+          fromRole: role,
+          toRole: downstream,
+          quantity: shipmentSent,
+          roundPlaced: roundNumber,
+          roundDue: roundNumber + game.shippingDelay,
         });
       }
 
-      // 4. PLACE ORDERS (create pipeline items)
+      // 4. PLACE ORDERS (collect for batch-create)
       const upstream = UPSTREAM[role];
       if (upstream === "PRODUCTION") {
-        // Factory: production with full lead time
-        await tx.pipelineItem.create({
-          data: {
-            gameId,
-            type: "PRODUCTION",
-            fromRole: "FACTORY",
-            toRole: "FACTORY",
-            quantity: orderPlaced,
-            roundPlaced: roundNumber,
-            roundDue: roundNumber + game.orderDelay + game.shippingDelay,
-          },
+        newPipelineItems.push({
+          gameId,
+          type: "PRODUCTION",
+          fromRole: "FACTORY",
+          toRole: "FACTORY",
+          quantity: orderPlaced,
+          roundPlaced: roundNumber,
+          roundDue: roundNumber + game.orderDelay + game.shippingDelay,
         });
       } else {
-        // Order to upstream
-        await tx.pipelineItem.create({
-          data: {
-            gameId,
-            type: "ORDER",
-            fromRole: role,
-            toRole: upstream,
-            quantity: orderPlaced,
-            roundPlaced: roundNumber,
-            roundDue: roundNumber + game.orderDelay,
-          },
+        newPipelineItems.push({
+          gameId,
+          type: "ORDER",
+          fromRole: role,
+          toRole: upstream,
+          quantity: orderPlaced,
+          roundPlaced: roundNumber,
+          roundDue: roundNumber + game.orderDelay,
         });
       }
 
@@ -287,6 +303,11 @@ export async function processRound(gameId: string, roundNumber: number) {
           totalCostCumulative,
         },
       });
+    }
+
+    // ---- BATCH CREATE: all new pipeline items at once ----
+    if (newPipelineItems.length > 0) {
+      await tx.pipelineItem.createMany({ data: newPipelineItems });
     }
 
     // 7. MARK ROUND AS PROCESSED

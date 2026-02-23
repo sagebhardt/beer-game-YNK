@@ -12,6 +12,7 @@ export function useSocket(gameCode: string, sessionId: string) {
 
     const socket = ioClient({
       path: "/api/socketio",
+      transports: ["websocket", "polling"],
     });
     socketRef.current = socket;
 

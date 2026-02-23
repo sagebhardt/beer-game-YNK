@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Beer, Eye, Check, Clock, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -118,16 +118,20 @@ export default function SpectatePage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on(S2C.ORDER_SUBMITTED, () => fetchState());
-    socket.on(S2C.ROUND_ADVANCED, () => fetchState());
-    socket.on(S2C.GAME_ENDED, () => {
+    const handleOrderSubmitted = () => fetchState();
+    const handleRoundAdvanced = () => fetchState();
+    const handleGameEnded = () => {
       router.push(`/juego/${code}/resultados`);
-    });
+    };
+
+    socket.on(S2C.ORDER_SUBMITTED, handleOrderSubmitted);
+    socket.on(S2C.ROUND_ADVANCED, handleRoundAdvanced);
+    socket.on(S2C.GAME_ENDED, handleGameEnded);
 
     return () => {
-      socket.off(S2C.ORDER_SUBMITTED);
-      socket.off(S2C.ROUND_ADVANCED);
-      socket.off(S2C.GAME_ENDED);
+      socket.off(S2C.ORDER_SUBMITTED, handleOrderSubmitted);
+      socket.off(S2C.ROUND_ADVANCED, handleRoundAdvanced);
+      socket.off(S2C.GAME_ENDED, handleGameEnded);
     };
   }, [socket, code, router, fetchState]);
 
@@ -141,43 +145,56 @@ export default function SpectatePage() {
 
   const { game, players, submissions, pipeline } = state;
 
-  const orderedPlayers = ROLES.map((role) =>
-    players.find((p) => p.role === role)
-  ).filter(Boolean);
+  const orderedPlayers = useMemo(
+    () => ROLES.map((role) => players.find((p) => p.role === role)).filter(Boolean),
+    [players]
+  );
 
-  const chainStatuses = Object.fromEntries(
-    ROLES.map((role) => {
-      const p = players.find((x) => x.role === role);
-      const submitted = submissions
-        ? submissions[role.toLowerCase() as keyof typeof submissions]
-        : false;
+  const chainStatuses = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const p = players.find((x) => x.role === role);
+          const submitted = submissions
+            ? submissions[role.toLowerCase() as keyof typeof submissions]
+            : false;
 
-      if (!p || !p.isConnected) return [role, "danger"];
-      if (submitted) return [role, "ok"];
-      return [role, "warn"];
-    })
-  ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>;
+          if (!p || !p.isConnected) return [role, "danger"];
+          if (submitted) return [role, "ok"];
+          return [role, "warn"];
+        })
+      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
+    [players, submissions]
+  );
 
-  const chainText = Object.fromEntries(
-    ROLES.map((role) => {
-      const p = players.find((x) => x.role === role);
-      if (!p) return [role, "Sin jugador"];
-      const submitted = submissions
-        ? submissions[role.toLowerCase() as keyof typeof submissions]
-        : false;
-      return [role, submitted ? `${p.name} · Listo` : `${p.name} · Esperando`];
-    })
-  ) as Partial<Record<Role, string>>;
+  const chainText = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const p = players.find((x) => x.role === role);
+          if (!p) return [role, "Sin jugador"];
+          const submitted = submissions
+            ? submissions[role.toLowerCase() as keyof typeof submissions]
+            : false;
+          return [role, submitted ? `${p.name} · Listo` : `${p.name} · Esperando`];
+        })
+      ) as Partial<Record<Role, string>>,
+    [players, submissions]
+  );
 
-  const inTransit = Object.fromEntries(
-    ROLES.map((role) => {
-      const downstream = DOWNSTREAM[role];
-      const qty = pipeline
-        .filter((p) => p.type === "SHIPMENT" && p.fromRole === role && p.toRole === downstream)
-        .reduce((sum, p) => sum + p.quantity, 0);
-      return [role, qty];
-    })
-  ) as Partial<Record<Role, number>>;
+  const inTransit = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const downstream = DOWNSTREAM[role];
+          const qty = pipeline
+            .filter((p) => p.type === "SHIPMENT" && p.fromRole === role && p.toRole === downstream)
+            .reduce((sum, p) => sum + p.quantity, 0);
+          return [role, qty];
+        })
+      ) as Partial<Record<Role, number>>,
+    [pipeline]
+  );
 
   return (
     <PageShell
