@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
-import { processRound } from "@/lib/game-engine";
+import { processRound, submitBotOrders } from "@/lib/game-engine";
 import { ROLES, type Role } from "@/lib/types";
 import { getIO } from "@/lib/socket-server";
 import { S2C } from "@/lib/socket-events";
@@ -113,6 +113,11 @@ export async function POST(
       data: { [ROLE_SUBMIT_FIELD[role]]: true },
     });
 
+    // In SOLO mode, auto-submit bot orders after the human's order
+    if (game.mode === "SOLO" && game.controllerSessionId) {
+      await submitBotOrders(game.id, currentRound, game.controllerSessionId);
+    }
+
     // Emit order submitted (role only, no quantity — information silo)
     const io = getIO();
     if (io) {
@@ -120,12 +125,19 @@ export async function POST(
       await emitAdminGameUpsert(io, code);
     }
 
-    // Check if all 4 have submitted (using the returned updatedRound)
+    // Re-fetch round to see all submissions (including bots in SOLO mode)
+    const finalRound = game.mode === "SOLO"
+      ? await prisma.round.findUniqueOrThrow({
+          where: { gameId_round: { gameId: game.id, round: currentRound } },
+        })
+      : updatedRound;
+
+    // Check if all 4 have submitted
     const allSubmitted =
-      updatedRound.retailerSubmitted &&
-      updatedRound.wholesalerSubmitted &&
-      updatedRound.distributorSubmitted &&
-      updatedRound.factorySubmitted;
+      finalRound.retailerSubmitted &&
+      finalRound.wholesalerSubmitted &&
+      finalRound.distributorSubmitted &&
+      finalRound.factorySubmitted;
 
     if (allSubmitted) {
       await processRound(game.id, currentRound);

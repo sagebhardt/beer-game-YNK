@@ -296,7 +296,7 @@ export default function LobbyPage() {
       {isCurrentSpectator ? (
         <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-muted)] p-3 text-center text-sm text-[var(--text-muted)]">
           <Eye className="mr-1 inline h-3.5 w-3.5" />
-          Modo observador — verás la partida completa sin poder intervenir.
+          Modo observador — verás el juego completo sin poder intervenir.
         </div>
       ) : isHost ? (
         <Button className="w-full" size="lg" onClick={handleStart} disabled={!allRolesAssigned || starting}>
@@ -308,7 +308,7 @@ export default function LobbyPage() {
         </Button>
       ) : (
         <div className="rounded-lg border border-[var(--border-soft)] bg-white p-3 text-center text-sm text-[var(--text-muted)]">
-          Esperando que el anfitrión inicie la partida.
+          Esperando que el anfitrión inicie el juego.
         </div>
       )}
 

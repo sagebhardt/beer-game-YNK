@@ -24,7 +24,7 @@ export const DOWNSTREAM: Record<Role, Role | "CONSUMER"> = {
 
 export const GAME_STATUS = ["LOBBY", "ACTIVE", "COMPLETED"] as const;
 export type GameStatus = (typeof GAME_STATUS)[number];
-export const GAME_MODES = ["MULTI", "TEST"] as const;
+export const GAME_MODES = ["MULTI", "TEST", "SOLO"] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 export const GAME_ENDED_REASONS = [
   "NATURAL",

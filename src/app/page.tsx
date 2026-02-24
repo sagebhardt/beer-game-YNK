@@ -13,7 +13,7 @@ import { PageShell } from "@/components/layout/page-shell";
 const actions = [
   {
     href: "/crear",
-    title: "Crear partida",
+    title: "Crear juego",
     description: "Configura la sesión y comparte el código con tu equipo.",
     icon: Plus,
     cta: "Configurar juego",

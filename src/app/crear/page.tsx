@@ -14,7 +14,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { GAME_MODES, type GameMode } from "@/lib/types";
+import { GAME_MODES, ROLES, ROLE_LABELS, type GameMode, type Role } from "@/lib/types";
 import { PageShell } from "@/components/layout/page-shell";
 
 export default function CrearPage() {
@@ -30,6 +30,7 @@ export default function CrearPage() {
   const [holdingCost, setHoldingCost] = useState(0.5);
   const [backlogCost, setBacklogCost] = useState(1.0);
   const [startInventory, setStartInventory] = useState(12);
+  const [soloRole, setSoloRole] = useState<Role>("RETAILER");
 
   async function handleCreate() {
     if (!playerName.trim()) {
@@ -52,6 +53,7 @@ export default function CrearPage() {
           holdingCost,
           backlogCost,
           startInventory,
+          ...(mode === "SOLO" ? { soloRole } : {}),
         }),
       });
 
@@ -63,6 +65,8 @@ export default function CrearPage() {
 
       if (mode === "TEST") {
         router.push(`/juego/${data.game.accessCode}/test`);
+      } else if (mode === "SOLO") {
+        router.push(`/juego/${data.game.accessCode}/jugar`);
       } else {
         router.push(`/juego/${data.game.accessCode}/lobby`);
       }
@@ -75,7 +79,7 @@ export default function CrearPage() {
 
   return (
     <PageShell
-      title="Crear Partida"
+      title="Crear Juego"
       subtitle="Define parámetros de la simulación y abre la sala para tu equipo."
       rightSlot={
         <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-body)] inline-flex items-center gap-1">
@@ -102,11 +106,11 @@ export default function CrearPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Nombre de partida (opcional)</label>
+              <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Nombre del equipo (opcional)</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Clase de logística"
+                placeholder="Ej: Equipo Logística"
               />
             </div>
           </div>
@@ -120,13 +124,15 @@ export default function CrearPage() {
               >
                 {GAME_MODES.map((gameMode) => (
                   <option key={gameMode} value={gameMode}>
-                    {gameMode === "MULTI" ? "Multijugador" : "Test (1 persona)"}
+                    {gameMode === "MULTI" ? "Multijugador" : gameMode === "SOLO" ? "Solo (1 persona + 3 bots)" : "Test (1 persona)"}
                   </option>
                 ))}
               </Select>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {mode === "MULTI"
                   ? "Modo clásico para 4 participantes."
+                  : mode === "SOLO"
+                  ? "Juegas un rol; 3 bots completan la cadena."
                   : "Una persona controla toda la cadena."}
               </p>
             </div>
@@ -142,6 +148,25 @@ export default function CrearPage() {
               />
             </div>
           </div>
+
+          {mode === "SOLO" && (
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Tu rol en la cadena</label>
+              <Select
+                value={soloRole}
+                onChange={(e) => setSoloRole(e.target.value as Role)}
+              >
+                {ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Minorista es el rol más cercano al consumidor. Ideal para experimentar el efecto látigo.
+              </p>
+            </div>
+          )}
 
           <button
             type="button"
