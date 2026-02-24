@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       backlogCost = 1.0,
       startInventory = 12,
       playerName = "Anfitrión",
+      soloRole = "RETAILER",
     } = body;
 
     if (!GAME_MODES.includes(mode)) {
@@ -60,13 +61,19 @@ export async function POST(request: Request) {
         backlogCost,
         startInventory,
         hostSessionId: sessionId,
-        controllerSessionId: mode === "TEST" ? sessionId : null,
+        controllerSessionId: mode === "TEST" || mode === "SOLO" ? sessionId : null,
         players: {
           create:
             mode === "TEST"
               ? ROLES.map((role) => ({
                   name: `${playerName} (${ROLE_LABELS[role]})`,
                   sessionId: `${sessionId}:${role}`,
+                  role,
+                }))
+              : mode === "SOLO"
+              ? ROLES.map((role) => ({
+                  name: role === soloRole ? playerName : `Bot (${ROLE_LABELS[role]})`,
+                  sessionId: role === soloRole ? sessionId : `${sessionId}:BOT:${role}`,
                   role,
                 }))
               : {
@@ -79,7 +86,7 @@ export async function POST(request: Request) {
       include: { players: true },
     });
 
-    if (mode === "TEST") {
+    if (mode === "TEST" || mode === "SOLO") {
       await initializeGame(game.id);
     }
 

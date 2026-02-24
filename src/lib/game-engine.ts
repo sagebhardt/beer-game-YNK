@@ -442,6 +442,56 @@ export async function getPlayerState(gameId: string, sessionId: string) {
 }
 
 /**
+ * Submit orders for all bot players in a SOLO mode game.
+ * Bot strategy: "order what you received" — bots order their previous round's
+ * incoming order quantity. Round 1 defaults to 4 (steady-state).
+ */
+export async function submitBotOrders(
+  gameId: string,
+  currentRound: number,
+  humanSessionId: string
+) {
+  const game = await prisma.game.findUniqueOrThrow({
+    where: { id: gameId },
+    include: { players: true },
+  });
+
+  const botPlayers = game.players.filter(
+    (p) => p.sessionId !== humanSessionId && ROLES.includes(p.role as Role)
+  );
+
+  // Batch-fetch previous round data for all bots
+  const prevRounds = await prisma.playerRound.findMany({
+    where: {
+      playerId: { in: botPlayers.map((p) => p.id) },
+      round: currentRound - 1,
+    },
+  });
+  const prevRoundMap = new Map(prevRounds.map((pr) => [pr.playerId, pr]));
+
+  for (const bot of botPlayers) {
+    const role = bot.role as Role;
+    const prevRound = prevRoundMap.get(bot.id);
+
+    // Bot strategy: order what was received last round (pass-through)
+    const orderQty = currentRound === 1 ? 4 : (prevRound?.incomingOrder ?? 4);
+
+    // Upsert PlayerRound with bot's order
+    await prisma.playerRound.upsert({
+      where: { playerId_round: { playerId: bot.id, round: currentRound } },
+      update: { orderPlaced: orderQty },
+      create: { playerId: bot.id, round: currentRound, orderPlaced: orderQty },
+    });
+
+    // Mark bot's submission flag on Round
+    await prisma.round.update({
+      where: { gameId_round: { gameId, round: currentRound } },
+      data: { [ROLE_SUBMIT_FIELD[role]]: true },
+    });
+  }
+}
+
+/**
  * Get full game state for the host view (no information silos).
  */
 export async function getHostState(gameId: string) {
