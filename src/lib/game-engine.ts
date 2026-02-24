@@ -267,7 +267,7 @@ export async function processRound(gameId: string, roundNumber: number) {
           toRole: "FACTORY",
           quantity: orderPlaced,
           roundPlaced: roundNumber,
-          roundDue: roundNumber + game.orderDelay + game.shippingDelay,
+          roundDue: roundNumber + game.shippingDelay,
         });
       } else {
         newPipelineItems.push({
