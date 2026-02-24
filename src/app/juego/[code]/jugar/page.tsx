@@ -8,7 +8,6 @@ import {
   Truck,
   AlertTriangle,
   Check,
-  Clock,
   Send,
   Wifi,
   WifiOff,
@@ -76,7 +75,7 @@ export default function JugarPage() {
   const [orderQty, setOrderQty] = useState<string>("0");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [roundAlert, setRoundAlert] = useState<{ round: number; demand: number } | null>(null);
+  const [roundAlert, setRoundAlert] = useState<{ round: number; demand: number; shipment: number } | null>(null);
   const [alertExiting, setAlertExiting] = useState(false);
   const prevRoundRef = useRef<number>(0);
   const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,8 +115,9 @@ export default function JugarPage() {
           ? data.roundHistory[data.roundHistory.length - 1]
           : null;
         const demand = lastEntry?.incomingOrder ?? 0;
+        const shipment = lastEntry?.incomingShipment ?? 0;
         setAlertExiting(false);
-        setRoundAlert({ round: newRound, demand });
+        setRoundAlert({ round: newRound, demand, shipment });
         if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
         alertTimerRef.current = setTimeout(() => {
           setAlertExiting(true);
@@ -275,6 +275,9 @@ export default function JugarPage() {
               <p className="text-sm text-[var(--text-body)]">
                 Te piden <span className="font-bold text-[var(--text-strong)]">{roundAlert.demand}</span> unidades
               </p>
+              <p className="text-sm text-[var(--text-body)]">
+                Recibiste <span className="font-bold text-[var(--ok)]">{roundAlert.shipment}</span> unidades
+              </p>
             </div>
           </div>
           <button className="text-[var(--text-muted)] hover:text-[var(--text-body)]" aria-label="Cerrar">
@@ -284,7 +287,7 @@ export default function JugarPage() {
       )}
 
       <SupplyChainStrip currentRole={role} statuses={chainStatus} statusText={chainText} className="mb-2" />
-      <SupplyChainDiagram playerRole={role} className="mb-4" />
+      <SupplyChainDiagram playerRole={role} submissions={submissions} className="mb-4" />
 
       <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
@@ -295,9 +298,15 @@ export default function JugarPage() {
           </CardHeader>
           <CardContent>
             <p className="kpi-value text-3xl font-bold text-[var(--text-strong)]">
-              {lastRound?.incomingOrder ?? 0} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span>
+              {lastRound !== null ? (
+                <>{lastRound.incomingOrder} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span></>
+              ) : (
+                <span className="text-lg font-medium text-[var(--text-muted)]">—</span>
+              )}
             </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">Demanda de tu cliente</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {lastRound !== null ? "Demanda de tu cliente" : "Esperando primera ronda"}
+            </p>
           </CardContent>
         </Card>
 
@@ -309,9 +318,15 @@ export default function JugarPage() {
           </CardHeader>
           <CardContent>
             <p className="kpi-value text-3xl font-bold text-[var(--text-strong)]">
-              {lastRound?.incomingShipment ?? 0} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span>
+              {lastRound !== null ? (
+                <>{lastRound.incomingShipment} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span></>
+              ) : (
+                <span className="text-lg font-medium text-[var(--text-muted)]">—</span>
+              )}
             </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">Llegó de tu proveedor</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {lastRound !== null ? "Llegó de tu proveedor" : "Esperando primera ronda"}
+            </p>
           </CardContent>
         </Card>
 
@@ -340,6 +355,7 @@ export default function JugarPage() {
                   <p className="text-xs text-[var(--text-muted)]" title="Costo de mantener inventario por semana.">
                     {formatCurrency(player.inventory * 0.5)} / semana
                   </p>
+                  <p className="text-xs italic text-[var(--text-muted)]">(US$0,50/ud)</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Backlog</p>
@@ -349,6 +365,7 @@ export default function JugarPage() {
                   <p className="text-xs text-[var(--text-muted)]" title="Pedidos pendientes. El backlog penaliza más que inventario.">
                     {player.backlog > 0 ? `${formatCurrency(player.backlog * 1)} / semana` : "Sin pendientes"}
                   </p>
+                  <p className="text-xs italic text-[var(--text-muted)]">(US$1,00/ud)</p>
                 </div>
               </div>
             </CardContent>
@@ -415,39 +432,6 @@ export default function JugarPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Estado de la ronda
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                {ROLES.map((r) => {
-                  const submitted = submissions
-                    ? submissions[r.toLowerCase() as keyof typeof submissions]
-                    : false;
-                  return (
-                    <div
-                      key={r}
-                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
-                        submitted
-                          ? "bg-[#f0fdf5] text-[var(--ok)]"
-                          : "bg-[var(--bg-muted)] text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {submitted ? (
-                        <Check className="w-3.5 h-3.5" />
-                      ) : (
-                        <Clock className="w-3.5 h-3.5" />
-                      )}
-                      {ROLE_LABELS[r]}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
