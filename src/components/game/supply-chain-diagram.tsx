@@ -83,7 +83,7 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
       </div>
 
       {/* Chain nodes */}
-      <div className="flex items-start justify-center gap-0 overflow-x-auto pb-1">
+      <div className="flex items-start justify-center gap-0 overflow-x-auto pt-4 pb-1">
         {CHAIN.map((nodeId, idx) => {
           const Icon = NODE_ICONS[nodeId];
           const label = NODE_LABELS[nodeId];
