@@ -66,6 +66,35 @@ h4 {
   letter-spacing: -0.02em;
 }
 
+@keyframes round-alert-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes round-alert-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-30%);
+  }
+}
+
+.round-alert-enter {
+  animation: round-alert-in 0.35s ease-out forwards;
+}
+
+.round-alert-exit {
+  animation: round-alert-out 0.4s ease-in forwards;
+}
+
 @media (max-width: 768px) {
   .app-shell {
     padding: 1rem 0.9rem 1.4rem;

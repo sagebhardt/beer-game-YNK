@@ -64,7 +64,7 @@ export default function UnirsePage() {
 
   return (
     <PageShell
-      title="Unirse a Partida"
+      title="Unirse a Juego"
       subtitle="Entra con tu nombre y código para ocupar un rol en la cadena."
       rightSlot={
         <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-body)] inline-flex items-center gap-1">
@@ -117,7 +117,7 @@ export default function UnirsePage() {
             disabled={loading}
           >
             <Eye className="w-4 h-4" />
-            {loading ? "Uniéndose..." : "Observar partida"}
+            {loading ? "Uniéndose..." : "Observar juego"}
           </Button>
         </CardContent>
       </Card>

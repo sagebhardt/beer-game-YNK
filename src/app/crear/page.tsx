@@ -75,7 +75,7 @@ export default function CrearPage() {
 
   return (
     <PageShell
-      title="Crear Partida"
+      title="Crear Juego"
       subtitle="Define parámetros de la simulación y abre la sala para tu equipo."
       rightSlot={
         <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-body)] inline-flex items-center gap-1">
@@ -102,11 +102,11 @@ export default function CrearPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Nombre de partida (opcional)</label>
+              <label className="mb-1 block text-sm font-semibold text-[var(--text-body)]">Nombre del equipo (opcional)</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Clase de logística"
+                placeholder="Ej: Equipo Logística"
               />
             </div>
           </div>

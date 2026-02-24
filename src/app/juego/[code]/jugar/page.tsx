@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Beer,
@@ -13,6 +13,7 @@ import {
   Wifi,
   WifiOff,
   Info,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import { useSocket } from "@/lib/use-socket";
 import { S2C } from "@/lib/socket-events";
 import { formatCurrency } from "@/lib/utils";
 import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
+import { SupplyChainDiagram } from "@/components/game/supply-chain-diagram";
 import { PageShell } from "@/components/layout/page-shell";
 
 interface PlayerStateData {
@@ -74,6 +76,10 @@ export default function JugarPage() {
   const [orderQty, setOrderQty] = useState<string>("0");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [roundAlert, setRoundAlert] = useState<{ round: number; demand: number } | null>(null);
+  const [alertExiting, setAlertExiting] = useState(false);
+  const prevRoundRef = useRef<number>(0);
+  const alertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { socket, isConnected } = useSocket(code, sessionId);
 
@@ -102,6 +108,23 @@ export default function JugarPage() {
         router.push(`/juego/${code}/spectate`);
         return;
       }
+
+      // Detect round change and trigger alert
+      const newRound = data.game?.currentRound ?? 0;
+      if (prevRoundRef.current > 0 && newRound > prevRoundRef.current) {
+        const lastEntry = data.roundHistory?.length > 0
+          ? data.roundHistory[data.roundHistory.length - 1]
+          : null;
+        const demand = lastEntry?.incomingOrder ?? 0;
+        setAlertExiting(false);
+        setRoundAlert({ round: newRound, demand });
+        if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+        alertTimerRef.current = setTimeout(() => {
+          setAlertExiting(true);
+          setTimeout(() => setRoundAlert(null), 400);
+        }, 4000);
+      }
+      prevRoundRef.current = newRound;
 
       setState(data);
     } catch {
@@ -221,7 +244,7 @@ export default function JugarPage() {
   return (
     <PageShell
       title={`${ROLE_LABELS[role]} · ${player.name}`}
-      subtitle="Decide tu pedido con base en señales locales: pedido recibido, inventario y backlog."
+      subtitle="Decide tu pedido con base en señales locales: demanda, inventario y entregas."
       rightSlot={
         <div className="flex items-center gap-2">
           <Badge variant="outline">Ronda {game.currentRound}/{game.totalRounds}</Badge>
@@ -233,32 +256,62 @@ export default function JugarPage() {
         </div>
       }
     >
-      <SupplyChainStrip currentRole={role} statuses={chainStatus} statusText={chainText} className="mb-4" />
+      {/* Round advance alert banner */}
+      {roundAlert && (
+        <div
+          className={`mb-4 flex items-center justify-between rounded-xl border border-[#adc7ff] bg-[#eef3ff] px-4 py-3 shadow-sm ${alertExiting ? "round-alert-exit" : "round-alert-enter"}`}
+          onClick={() => {
+            setAlertExiting(true);
+            setTimeout(() => setRoundAlert(null), 400);
+          }}
+          role="status"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+              <Package className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[var(--accent)]">Ronda {roundAlert.round}</p>
+              <p className="text-sm text-[var(--text-body)]">
+                Te piden <span className="font-bold text-[var(--text-strong)]">{roundAlert.demand}</span> unidades
+              </p>
+            </div>
+          </div>
+          <button className="text-[var(--text-muted)] hover:text-[var(--text-body)]" aria-label="Cerrar">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      <SupplyChainStrip currentRole={role} statuses={chainStatus} statusText={chainText} className="mb-2" />
+      <SupplyChainDiagram playerRole={role} className="mb-4" />
 
       <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader className="py-3">
             <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
-              <Package className="w-4 h-4" /> Pedido recibido ({downstreamLabel})
+              <Package className="w-4 h-4" /> Te piden ({downstreamLabel})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="kpi-value text-3xl font-bold text-[var(--text-strong)]">
               {lastRound?.incomingOrder ?? 0} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span>
             </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Demanda de tu cliente</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="py-3">
             <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
-              <Truck className="w-4 h-4" /> Envío recibido ({upstreamLabel})
+              <Truck className="w-4 h-4" /> Recibiste ({upstreamLabel})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="kpi-value text-3xl font-bold text-[var(--text-strong)]">
               {lastRound?.incomingShipment ?? 0} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span>
             </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Llegó de tu proveedor</p>
           </CardContent>
         </Card>
 
@@ -409,8 +462,8 @@ export default function JugarPage() {
                 <thead>
                   <tr className="border-b text-[var(--text-muted)]">
                     <th className="pb-2 text-left">#</th>
-                    <th className="pb-2 text-right">Pedido rec.</th>
-                    <th className="pb-2 text-right">Envío rec.</th>
+                    <th className="pb-2 text-right">Te piden</th>
+                    <th className="pb-2 text-right">Recibiste</th>
                     <th className="pb-2 text-right">Orden</th>
                     <th className="pb-2 text-right">Inv.</th>
                     <th className="pb-2 text-right">BL</th>
