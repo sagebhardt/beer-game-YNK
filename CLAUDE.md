@@ -38,7 +38,7 @@ When making changes, keep these files up to date:
 - `PipelineItem` model with `roundPlaced` and `roundDue`.
 - Orders: `roundDue = roundPlaced + orderDelay` (2 weeks).
 - Shipments: `roundDue = roundPlaced + shippingDelay` (2 weeks).
-- Factory production: `roundDue = roundPlaced + orderDelay + shippingDelay` (4 weeks).
+- Factory production: `roundDue = roundPlaced + shippingDelay` (2 weeks).
 - Query `WHERE roundDue = currentRound` to find arriving items.
 
 ### Socket.io

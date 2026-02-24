@@ -64,7 +64,7 @@ Triggered when all 4 roles submit orders for round N:
 6. **Save** PlayerRound, advance to N+1 or mark COMPLETED (`endedReason = NATURAL`)
 
 ### Factory Production
-Factory has no upstream supplier. Its "order" creates a PRODUCTION PipelineItem with `roundDue = N + orderDelay + shippingDelay` (full 4-week lead time). Arrives back to Factory as incomingShipment.
+Factory has no upstream supplier. Its "order" creates a PRODUCTION PipelineItem with `roundDue = N + shippingDelay` (2-week production lead time). Arrives back to Factory as incomingShipment.
 
 ## Real-Time Architecture
 
