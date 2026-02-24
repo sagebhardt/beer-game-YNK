@@ -169,6 +169,36 @@ export default function JugarPage() {
     }
   }
 
+  // useMemo hooks must be ABOVE early returns to satisfy React rules of hooks
+  const _submissions = state?.submissions ?? null;
+  const _role = state?.player?.role;
+  const _hasSubmitted = state?.hasSubmittedThisRound ?? false;
+
+  const chainStatus = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((r) => {
+          const submitted = _submissions ? _submissions[r.toLowerCase() as keyof typeof _submissions] : false;
+          return [r, submitted ? "ok" : "warn"];
+        })
+      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
+    [_submissions]
+  );
+
+  const chainText = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((r) => {
+          if (r === _role) {
+            return [r, _hasSubmitted ? "Pedido enviado" : "Pendiente de enviar"];
+          }
+          const submitted = _submissions ? _submissions[r.toLowerCase() as keyof typeof _submissions] : false;
+          return [r, submitted ? "Listo" : "Esperando"];
+        })
+      ) as Partial<Record<Role, string>>,
+    [_submissions, _role, _hasSubmitted]
+  );
+
   if (!state) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -187,31 +217,6 @@ export default function JugarPage() {
 
   const lastRound = roundHistory.length > 0 ? roundHistory[roundHistory.length - 1] : null;
   const inTransit = pipeline.reduce((acc, p) => acc + p.quantity, 0);
-
-  const chainStatus = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((r) => {
-          const submitted = submissions ? submissions[r.toLowerCase() as keyof typeof submissions] : false;
-          return [r, submitted ? "ok" : "warn"];
-        })
-      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
-    [submissions]
-  );
-
-  const chainText = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((r) => {
-          if (r === role) {
-            return [r, hasSubmittedThisRound ? "Pedido enviado" : "Pendiente de enviar"];
-          }
-          const submitted = submissions ? submissions[r.toLowerCase() as keyof typeof submissions] : false;
-          return [r, submitted ? "Listo" : "Esperando"];
-        })
-      ) as Partial<Record<Role, string>>,
-    [submissions, role, hasSubmittedThisRound]
-  );
 
   return (
     <PageShell
