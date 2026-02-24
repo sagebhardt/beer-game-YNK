@@ -135,6 +135,62 @@ export default function SpectatePage() {
     };
   }, [socket, code, router, fetchState]);
 
+  // useMemo hooks must be ABOVE early returns to satisfy React rules of hooks
+  const _players = state?.players ?? [];
+  const _submissions = state?.submissions ?? null;
+  const _pipeline = state?.pipeline ?? [];
+
+  const orderedPlayers = useMemo(
+    () => ROLES.map((role) => _players.find((p) => p.role === role)).filter(Boolean),
+    [_players]
+  );
+
+  const chainStatuses = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const p = _players.find((x) => x.role === role);
+          const submitted = _submissions
+            ? _submissions[role.toLowerCase() as keyof typeof _submissions]
+            : false;
+
+          if (!p || !p.isConnected) return [role, "danger"];
+          if (submitted) return [role, "ok"];
+          return [role, "warn"];
+        })
+      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
+    [_players, _submissions]
+  );
+
+  const chainText = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const p = _players.find((x) => x.role === role);
+          if (!p) return [role, "Sin jugador"];
+          const submitted = _submissions
+            ? _submissions[role.toLowerCase() as keyof typeof _submissions]
+            : false;
+          return [role, submitted ? `${p.name} · Listo` : `${p.name} · Esperando`];
+        })
+      ) as Partial<Record<Role, string>>,
+    [_players, _submissions]
+  );
+
+  const inTransit = useMemo(
+    () =>
+      Object.fromEntries(
+        ROLES.map((role) => {
+          const downstream = DOWNSTREAM[role];
+          const qty = _pipeline
+            .filter((p) => p.type === "SHIPMENT" && p.fromRole === role && p.toRole === downstream)
+            .reduce((sum, p) => sum + p.quantity, 0);
+          return [role, qty];
+        })
+      ) as Partial<Record<Role, number>>,
+    [_pipeline]
+  );
+
   if (!state) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -144,57 +200,6 @@ export default function SpectatePage() {
   }
 
   const { game, players, submissions, pipeline } = state;
-
-  const orderedPlayers = useMemo(
-    () => ROLES.map((role) => players.find((p) => p.role === role)).filter(Boolean),
-    [players]
-  );
-
-  const chainStatuses = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((role) => {
-          const p = players.find((x) => x.role === role);
-          const submitted = submissions
-            ? submissions[role.toLowerCase() as keyof typeof submissions]
-            : false;
-
-          if (!p || !p.isConnected) return [role, "danger"];
-          if (submitted) return [role, "ok"];
-          return [role, "warn"];
-        })
-      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
-    [players, submissions]
-  );
-
-  const chainText = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((role) => {
-          const p = players.find((x) => x.role === role);
-          if (!p) return [role, "Sin jugador"];
-          const submitted = submissions
-            ? submissions[role.toLowerCase() as keyof typeof submissions]
-            : false;
-          return [role, submitted ? `${p.name} · Listo` : `${p.name} · Esperando`];
-        })
-      ) as Partial<Record<Role, string>>,
-    [players, submissions]
-  );
-
-  const inTransit = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((role) => {
-          const downstream = DOWNSTREAM[role];
-          const qty = pipeline
-            .filter((p) => p.type === "SHIPMENT" && p.fromRole === role && p.toRole === downstream)
-            .reduce((sum, p) => sum + p.quantity, 0);
-          return [role, qty];
-        })
-      ) as Partial<Record<Role, number>>,
-    [pipeline]
-  );
 
   return (
     <PageShell
