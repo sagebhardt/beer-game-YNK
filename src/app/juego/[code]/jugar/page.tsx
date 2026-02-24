@@ -340,8 +340,6 @@ export default function JugarPage() {
         </Card>
       </div>
 
-      <SupplyChainDiagram playerRole={role} submissions={submissions} className="mb-4" />
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <Card>
@@ -435,6 +433,8 @@ export default function JugarPage() {
 
         </div>
       </div>
+
+      <SupplyChainDiagram playerRole={role} submissions={submissions} className="mt-4" />
 
       {roundHistory.length > 0 ? (
         <Card className="mt-4">
