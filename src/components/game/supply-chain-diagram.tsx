@@ -1,6 +1,6 @@
 import { ROLE_LABELS, ROLES, UPSTREAM, DOWNSTREAM, type Role } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Factory, ShoppingBag, ShoppingCart, Truck, Warehouse, Cog, Check, Clock } from "lucide-react";
+import { Factory, ShoppingBag, ShoppingCart, Truck, Warehouse, Cog, Check, Clock, ArrowRight, ArrowLeft } from "lucide-react";
 import type { ComponentType } from "react";
 
 interface SubmissionStatus {
@@ -65,18 +65,20 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
   const upstream = UPSTREAM[playerRole];
 
   return (
-    <div className={cn("rounded-xl border border-[var(--border-soft)] bg-white px-4 py-4 sm:px-6 sm:py-5", className)}>
+    <div className={cn("rounded-xl border border-[var(--border-soft)] bg-white px-4 py-5 sm:px-8 sm:py-6", className)}>
       {/* Flow legend */}
-      <div className="mb-3 flex items-center justify-center gap-8 text-[11px] font-semibold text-[var(--text-muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-[2px] w-5 rounded-full bg-[var(--accent)]" />
-          <span className="text-[var(--accent)]">← Pedidos</span>
-          <span className="hidden sm:inline">(info aguas arriba)</span>
+      <div className="mb-4 flex items-center justify-center gap-8 text-xs font-semibold text-[var(--text-muted)] sm:gap-10 sm:text-sm">
+        <span className="flex items-center gap-2">
+          <span className="inline-block h-[2px] w-6 rounded-full bg-[var(--accent)]" />
+          <ArrowLeft className="h-3.5 w-3.5 text-[var(--accent)]" />
+          <span className="text-[var(--accent)]">Pedidos</span>
+          <span className="hidden sm:inline text-[var(--text-muted)]">(info aguas arriba)</span>
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-[2px] w-5 rounded-full bg-[var(--ok)]" />
-          <span className="text-[var(--ok)]">Mercancía →</span>
-          <span className="hidden sm:inline">(flujo aguas abajo)</span>
+        <span className="flex items-center gap-2">
+          <span className="inline-block h-[2px] w-6 rounded-full bg-[var(--ok)]" />
+          <span className="text-[var(--ok)]">Mercancía</span>
+          <ArrowRight className="h-3.5 w-3.5 text-[var(--ok)]" />
+          <span className="hidden sm:inline text-[var(--text-muted)]">(flujo aguas abajo)</span>
         </span>
       </div>
 
@@ -98,19 +100,19 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
 
           return (
             <div key={nodeId} className="flex items-center">
-              {/* Connector arrow between nodes */}
+              {/* Connector between nodes */}
               {idx > 0 && (
-                <div className="flex w-4 flex-col items-center gap-0.5 sm:w-6">
-                  <span className="text-[10px] font-bold text-[var(--ok)] sm:text-xs">›</span>
-                  <span className="text-[10px] font-bold text-[var(--accent)] sm:text-xs">‹</span>
+                <div className="flex w-5 flex-col items-center gap-0.5 sm:w-8">
+                  <ArrowRight className="h-3 w-3 text-[var(--ok)] sm:h-3.5 sm:w-3.5" />
+                  <ArrowLeft className="h-3 w-3 text-[var(--accent)] sm:h-3.5 sm:w-3.5" />
                 </div>
               )}
 
               {/* Node */}
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-1.5">
                 <div
                   className={cn(
-                    "relative flex flex-col items-center rounded-xl border-2 px-3 py-2.5 text-center transition-all sm:px-5 sm:py-3",
+                    "relative flex flex-col items-center rounded-xl border-2 px-4 py-3 text-center transition-all sm:px-6 sm:py-4",
                     isEdge
                       ? "border-dashed border-[var(--border-soft)] bg-[var(--bg-muted)]"
                       : status === "submitted"
@@ -126,12 +128,12 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                   )}
                 >
                   {isPlayer && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-[var(--accent)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--accent)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
                       Tu rol
                     </span>
                   )}
                   <Icon className={cn(
-                    "h-5 w-5 sm:h-6 sm:w-6",
+                    "h-6 w-6 sm:h-8 sm:w-8",
                     status === "submitted" ? "text-[var(--ok)]"
                       : status === "must-play" ? "text-[#ea580c]"
                       : status === "pending" ? "text-[#ca8a04]"
@@ -139,7 +141,7 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                       : "text-[var(--text-muted)]"
                   )} />
                   <span className={cn(
-                    "mt-1 text-[11px] font-bold leading-tight sm:text-xs",
+                    "mt-1 text-xs font-bold leading-tight sm:text-sm",
                     status === "submitted" ? "text-[var(--ok)]"
                       : status === "must-play" ? "text-[#ea580c]"
                       : status === "pending" ? "text-[#ca8a04]"
@@ -153,14 +155,14 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                 {/* Status label below the node */}
                 {sLabel && (
                   <span className={cn(
-                    "flex items-center gap-1 text-[10px] font-semibold sm:text-[11px]",
+                    "flex items-center gap-1 text-[11px] font-semibold sm:text-xs",
                     status === "submitted" ? "text-[var(--ok)]"
                       : status === "must-play" ? "text-[#ea580c]"
                       : "text-[#ca8a04]"
                   )}>
                     {sLabel.icon === "check"
-                      ? <Check className="h-3 w-3" />
-                      : <Clock className="h-3 w-3" />
+                      ? <Check className="h-3.5 w-3.5" />
+                      : <Clock className="h-3.5 w-3.5" />
                     }
                     {sLabel.text}
                   </span>
@@ -168,10 +170,10 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
 
                 {/* Context label */}
                 {contextLabel && !sLabel && (
-                  <span className="text-[10px] font-semibold text-[var(--warn)] sm:text-[11px]">{contextLabel}</span>
+                  <span className="text-[11px] font-semibold text-[var(--warn)] sm:text-xs">{contextLabel}</span>
                 )}
                 {contextLabel && sLabel && (
-                  <span className="text-[9px] font-medium text-[var(--text-muted)]">{contextLabel}</span>
+                  <span className="text-[10px] font-medium text-[var(--text-muted)] sm:text-[11px]">{contextLabel}</span>
                 )}
               </div>
             </div>
