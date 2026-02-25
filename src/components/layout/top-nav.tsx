@@ -34,7 +34,7 @@ export function TopNav() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-[#e6efff] text-[var(--accent)]"
+                    ? "bg-[var(--accent-light)] text-[var(--accent)]"
                     : "text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-body)]",
                 )}
               >

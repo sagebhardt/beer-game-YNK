@@ -34,9 +34,9 @@ ChartJS.register(
 );
 
 const ROLE_COLORS: Record<string, string> = {
-  RETAILER: "#2c02c6",
-  WHOLESALER: "#0ea5e9",
-  DISTRIBUTOR: "#f59e0b",
+  RETAILER: "#0039A7",
+  WHOLESALER: "#3B82F6",
+  DISTRIBUTOR: "#FB4F14",
   FACTORY: "#10b981",
 };
 

@@ -157,9 +157,9 @@ export default function ResultadosPage() {
       <SupplyChainStrip className="mb-4" />
 
       {winner ? (
-        <div className="mb-4 rounded-xl border border-[#fde7bc] bg-[#fff8e8] p-4 text-center">
-          <Trophy className="mx-auto mb-1 h-6 w-6 text-[var(--warn)]" />
-          <p className="text-sm text-[var(--warn)]">Mejor desempeño</p>
+        <div className="mb-4 rounded-xl border border-[var(--cta-light-border)] bg-[var(--cta-light)] p-4 text-center">
+          <Trophy className="mx-auto mb-1 h-6 w-6 text-[var(--cta)]" />
+          <p className="text-sm text-[var(--cta)]">Mejor desempeño</p>
           <p className="text-lg font-bold text-[var(--text-strong)]">
             {winner.name} ({ROLE_LABELS[winner.role as Role]})
           </p>
@@ -221,11 +221,11 @@ export default function ResultadosPage() {
           const isWinner = player.id === winner?.id;
 
           return (
-            <Card key={role} className={isWinner ? "border-[#fde7bc] ring-1 ring-[#fde7bc]" : ""}>
+            <Card key={role} className={isWinner ? "border-[var(--cta-light-border)] ring-1 ring-[var(--cta-light-border)]" : ""}>
               <CardHeader className="py-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">{ROLE_LABELS[role]}</CardTitle>
-                  {isWinner ? <Trophy className="h-4 w-4 text-[var(--warn)]" /> : <Activity className="h-4 w-4 text-[var(--text-muted)]" />}
+                  {isWinner ? <Trophy className="h-4 w-4 text-[var(--cta)]" /> : <Activity className="h-4 w-4 text-[var(--text-muted)]" />}
                 </div>
                 <p className="text-xs text-[var(--text-muted)]">{player.name}</p>
               </CardHeader>
