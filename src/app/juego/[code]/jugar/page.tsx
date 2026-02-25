@@ -259,7 +259,7 @@ export default function JugarPage() {
       {/* Round advance alert banner */}
       {roundAlert && (
         <div
-          className={`mb-4 flex items-center justify-between rounded-xl border border-[#adc7ff] bg-[#eef3ff] px-4 py-3 shadow-sm ${alertExiting ? "round-alert-exit" : "round-alert-enter"}`}
+          className={`mb-4 flex items-center justify-between rounded-xl border border-[var(--accent-light-border)] bg-[var(--accent-light)] px-4 py-3 shadow-sm ${alertExiting ? "round-alert-exit" : "round-alert-enter"}`}
           onClick={() => {
             setAlertExiting(true);
             setTimeout(() => setRoundAlert(null), 400);
@@ -423,7 +423,7 @@ export default function JugarPage() {
                     Pedido sugerido = demanda reciente + ajuste gradual de backlog.
                   </p>
                   {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-                  <Button className="w-full" onClick={handleSubmitOrder} disabled={submitting}>
+                  <Button variant="cta" className="w-full" onClick={handleSubmitOrder} disabled={submitting}>
                     {submitting ? "Enviando..." : "Confirmar pedido"}
                   </Button>
                 </div>

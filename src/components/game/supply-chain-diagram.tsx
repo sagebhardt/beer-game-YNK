@@ -118,11 +118,11 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                       : status === "submitted"
                       ? "border-[#86efac] bg-[#f0fdf4] ring-2 ring-[#86efac]/30 shadow-sm"
                       : status === "must-play"
-                      ? "border-[#fdba74] bg-[#fff7ed] ring-2 ring-[#fdba74]/30 shadow-md"
+                      ? "border-[var(--cta-light-border)] bg-[var(--cta-light)] ring-2 ring-[var(--cta)]/20 shadow-md"
                       : status === "pending"
                       ? "border-[#fde68a] bg-[#fefce8]"
                       : isPlayer
-                      ? "border-[var(--accent)] bg-[#eef3ff] ring-2 ring-[var(--accent)]/20 shadow-sm"
+                      ? "border-[var(--accent)] bg-[var(--accent-light)] ring-2 ring-[var(--accent)]/20 shadow-sm"
                       : "border-[var(--border-soft)] bg-white",
                     !isRole && "opacity-60"
                   )}
@@ -135,7 +135,7 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                   <Icon className={cn(
                     "h-6 w-6 sm:h-8 sm:w-8",
                     status === "submitted" ? "text-[var(--ok)]"
-                      : status === "must-play" ? "text-[#ea580c]"
+                      : status === "must-play" ? "text-[var(--cta)]"
                       : status === "pending" ? "text-[#ca8a04]"
                       : isPlayer ? "text-[var(--accent)]"
                       : "text-[var(--text-muted)]"
@@ -143,7 +143,7 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                   <span className={cn(
                     "mt-1 text-xs font-bold leading-tight sm:text-sm",
                     status === "submitted" ? "text-[var(--ok)]"
-                      : status === "must-play" ? "text-[#ea580c]"
+                      : status === "must-play" ? "text-[var(--cta)]"
                       : status === "pending" ? "text-[#ca8a04]"
                       : isPlayer ? "text-[var(--accent)]"
                       : "text-[var(--text-body)]"
@@ -157,7 +157,7 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                   <span className={cn(
                     "flex items-center gap-1 text-[11px] font-semibold sm:text-xs",
                     status === "submitted" ? "text-[var(--ok)]"
-                      : status === "must-play" ? "text-[#ea580c]"
+                      : status === "must-play" ? "text-[var(--cta)]"
                       : "text-[#ca8a04]"
                   )}>
                     {sLabel.icon === "check"

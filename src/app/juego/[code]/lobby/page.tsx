@@ -249,7 +249,7 @@ export default function LobbyPage() {
               key={role}
               className={`transition-all ${
                 isMe
-                  ? "border-[#adc7ff] ring-2 ring-[#cadbff]"
+                  ? "border-[var(--accent-light-border)] ring-2 ring-[var(--accent-light-border)]"
                   : isTaken || isCurrentSpectator
                   ? "opacity-70"
                   : "cursor-pointer hover:-translate-y-0.5"

@@ -51,9 +51,9 @@ export default function HomePage() {
           const Icon = action.icon;
           return (
             <Link key={action.href} href={action.href} className="block h-full">
-              <Card className="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-26px_rgba(16,32,74,0.75)]">
+              <Card className="h-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-26px_rgba(0,40,120,0.65)]">
                 <CardHeader>
-                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#e6efff]">
+                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-light)]">
                     <Icon className="h-5 w-5 text-[var(--accent)]" />
                   </div>
                   <CardTitle>{action.title}</CardTitle>

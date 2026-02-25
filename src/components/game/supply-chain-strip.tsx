@@ -57,7 +57,7 @@ export function SupplyChainStrip({
         {nodes.map((node, index) => (
           <div key={node.role} className="flex items-center gap-2">
             <span className="text-xs text-[var(--text-muted)]">→</span>
-            <div className={cn("min-w-[138px] rounded-lg border px-2.5 py-2", toneClasses(node.statusTone), node.active ? "ring-2 ring-[#c6d8ff]" : "") }>
+            <div className={cn("min-w-[138px] rounded-lg border px-2.5 py-2", toneClasses(node.statusTone), node.active ? "ring-2 ring-[var(--accent-light-border)]" : "") }>
               <p className="inline-flex items-center gap-1.5 text-xs font-semibold leading-none">
                 <RoleBadgeIcon role={node.role} />
                 {node.label}

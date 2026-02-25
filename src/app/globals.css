@@ -1,25 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  --font-body: var(--font-manrope);
-  --font-display: var(--font-space-grotesk);
+  --font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: var(--font-barlow-condensed);
 
-  --bg-canvas: #f3f5fb;
+  --bg-canvas: #f4f6fb;
   --bg-surface: #ffffff;
-  --bg-muted: #ecf0f7;
-  --bg-accent: #113173;
+  --bg-muted: #e9eef8;
+  --bg-accent: #002D86;
 
-  --text-strong: #0e1a33;
-  --text-body: #32425f;
-  --text-muted: #667798;
+  --text-strong: #0c1a36;
+  --text-body: #2e3f5c;
+  --text-muted: #607494;
 
-  --border-soft: #d7e0ef;
-  --ring: #1646a1;
+  --border-soft: #d4deee;
+  --ring: #0039A7;
 
   --ok: #138a52;
   --warn: #b7791f;
   --danger: #b11f3d;
-  --accent: #1f4fb6;
+  --accent: #0039A7;
+
+  --accent-hover: #002D86;
+  --accent-light: #e0eaff;
+  --accent-light-border: #a3bfef;
+
+  --cta: #FB4F14;
+  --cta-hover: #E04410;
+  --cta-light: #FFF0EB;
+  --cta-light-border: #FDB99B;
 }
 
 * {
@@ -32,15 +41,21 @@ body {
 }
 
 body {
-  font-family: var(--font-body), "Segoe UI", sans-serif;
+  font-family: var(--font-body), sans-serif;
   color: var(--text-body);
-  background: radial-gradient(circle at 20% 0%, #e8efff 0%, var(--bg-canvas) 38%, #eef2f9 100%);
+  background: radial-gradient(circle at 20% 0%, #dce8ff 0%, var(--bg-canvas) 38%, #ebf0f9 100%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1,
-h2,
+h2 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  color: var(--text-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 h3,
 h4 {
   font-family: var(--font-display), var(--font-body), sans-serif;
@@ -58,7 +73,7 @@ h4 {
   border: 1px solid var(--border-soft);
   background: var(--bg-surface);
   border-radius: 14px;
-  box-shadow: 0 12px 28px -20px rgba(31, 46, 91, 0.5);
+  box-shadow: 0 12px 28px -20px rgba(0, 40, 120, 0.45);
 }
 
 .kpi-value {
