@@ -13,6 +13,7 @@ import {
   WifiOff,
   Info,
   X,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,6 @@ import { ROLE_LABELS, ROLES, UPSTREAM, DOWNSTREAM, type Role } from "@/lib/types
 import { useSocket } from "@/lib/use-socket";
 import { S2C } from "@/lib/socket-events";
 import { formatCurrency } from "@/lib/utils";
-import { SupplyChainStrip } from "@/components/game/supply-chain-strip";
 import { SupplyChainDiagram } from "@/components/game/supply-chain-diagram";
 import { PageShell } from "@/components/layout/page-shell";
 
@@ -195,33 +195,6 @@ export default function JugarPage() {
   // useMemo hooks must be ABOVE early returns to satisfy React rules of hooks
   const _submissions = state?.submissions ?? null;
   const _role = state?.player?.role;
-  const _hasSubmitted = state?.hasSubmittedThisRound ?? false;
-
-  const chainStatus = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((r) => {
-          const submitted = _submissions ? _submissions[r.toLowerCase() as keyof typeof _submissions] : false;
-          return [r, submitted ? "ok" : "warn"];
-        })
-      ) as Partial<Record<Role, "ok" | "warn" | "danger" | "neutral">>,
-    [_submissions]
-  );
-
-  const chainText = useMemo(
-    () =>
-      Object.fromEntries(
-        ROLES.map((r) => {
-          if (r === _role) {
-            return [r, _hasSubmitted ? "Pedido enviado" : "Pendiente de enviar"];
-          }
-          const submitted = _submissions ? _submissions[r.toLowerCase() as keyof typeof _submissions] : false;
-          return [r, submitted ? "Listo" : "Esperando"];
-        })
-      ) as Partial<Record<Role, string>>,
-    [_submissions, _role, _hasSubmitted]
-  );
-
   if (!state) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -286,30 +259,11 @@ export default function JugarPage() {
         </div>
       )}
 
-      <SupplyChainStrip currentRole={role} statuses={chainStatus} statusText={chainText} className="mb-4" />
+      <SupplyChainDiagram playerRole={role} submissions={submissions} className="mb-4" />
 
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
-              <Package className="w-4 h-4" /> Te piden ({downstreamLabel})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="kpi-value text-3xl font-bold text-[var(--text-strong)]">
-              {lastRound !== null ? (
-                <>{lastRound.incomingOrder} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span></>
-              ) : (
-                <span className="text-lg font-medium text-[var(--text-muted)]">—</span>
-              )}
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {lastRound !== null ? "Demanda de tu cliente" : "Esperando primera ronda"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
+      <div className="mb-4 flex flex-col lg:flex-row lg:items-stretch gap-4">
+        {/* 1. Recibiste */}
+        <Card className="flex-1">
           <CardHeader className="py-3">
             <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
               <Truck className="w-4 h-4" /> Recibiste ({upstreamLabel})
@@ -329,6 +283,130 @@ export default function JugarPage() {
           </CardContent>
         </Card>
 
+        {/* Arrow 1 */}
+        <div className="hidden lg:flex items-center">
+          <ArrowRight className="h-5 w-5 text-[var(--text-muted)]" />
+        </div>
+
+        {/* 2. Stock en bodega */}
+        <Card className="flex-1">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-semibold text-[var(--text-body)]">Stock en bodega</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Inventario</p>
+                <p className="kpi-value text-3xl font-bold text-[var(--ok)]">{player.inventory}</p>
+                <p className="text-xs text-[var(--text-muted)]" title="Costo de mantener inventario por semana.">
+                  {formatCurrency(player.inventory * 0.5)} / semana
+                </p>
+                <p className="text-xs italic text-[var(--text-muted)]">(US$0,50/ud)</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Backlog</p>
+                <p className={`kpi-value text-3xl font-bold ${player.backlog > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
+                  {player.backlog}
+                </p>
+                <p className="text-xs text-[var(--text-muted)]" title="Pedidos pendientes. El backlog penaliza más que inventario.">
+                  {player.backlog > 0 ? `${formatCurrency(player.backlog * 1)} / semana` : "Sin pendientes"}
+                </p>
+                <p className="text-xs italic text-[var(--text-muted)]">(US$1,00/ud)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Arrow 2 */}
+        <div className="hidden lg:flex items-center">
+          <ArrowRight className="h-5 w-5 text-[var(--text-muted)]" />
+        </div>
+
+        {/* 3. Te piden */}
+        <Card className="flex-1">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
+              <Package className="w-4 h-4" /> Te piden ({downstreamLabel})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="kpi-value text-3xl font-bold text-[var(--text-strong)]">
+              {lastRound !== null ? (
+                <>{lastRound.incomingOrder} <span className="text-sm font-medium text-[var(--text-muted)]">uds</span></>
+              ) : (
+                <span className="text-lg font-medium text-[var(--text-muted)]">—</span>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {lastRound !== null ? "Demanda de tu cliente" : "Esperando primera ronda"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* 1. Pipeline logístico */}
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
+              <Truck className="w-4 h-4" /> Pipeline logístico
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-2 text-xs text-[var(--text-muted)]">{inTransit} unidades en tránsito hacia tu nodo.</p>
+            {pipeline.length === 0 ? (
+              <p className="text-sm text-[var(--text-muted)]">No hay envíos en camino.</p>
+            ) : (
+              <div className="space-y-2">
+                {pipeline.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-md bg-[var(--bg-muted)] px-3 py-2">
+                    <span className="text-sm font-semibold text-[var(--text-strong)]">{p.quantity} unidades</span>
+                    <Badge variant="outline">Llega en {p.arrivesInRounds} ronda{p.arrivesInRounds !== 1 ? "s" : ""}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 2. Pedir a proveedor */}
+        <Card className={hasSubmittedThisRound ? "opacity-80" : ""}>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
+              <Send className="w-4 h-4" />
+              {upstream === "PRODUCTION" ? "Ordenar producción" : `Pedir a ${upstreamLabel}`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hasSubmittedThisRound ? (
+              <div className="rounded-lg border border-[#c7f2d6] bg-[#f0fdf5] p-3 text-sm text-[var(--ok)]">
+                <div className="mb-1 flex items-center gap-2 font-semibold"><Check className="w-4 h-4" /> Pedido enviado</div>
+                Esperando a que el resto de la cadena complete su decisión.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Input
+                  type="number"
+                  min={0}
+                  value={orderQty}
+                  onChange={(e) => setOrderQty(e.target.value)}
+                  placeholder="Cantidad"
+                  className="text-center text-xl font-semibold"
+                />
+                <p className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+                  <Info className="h-3.5 w-3.5" />
+                  Pedido sugerido = demanda reciente + ajuste gradual de backlog.
+                </p>
+                {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+                <Button variant="cta" className="w-full" onClick={handleSubmitOrder} disabled={submitting}>
+                  {submitting ? "Enviando..." : "Confirmar pedido"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 3. Costo acumulado */}
         <Card>
           <CardHeader className="py-3">
             <CardTitle className="text-sm font-semibold text-[var(--text-body)]">Costo acumulado</CardTitle>
@@ -339,102 +417,6 @@ export default function JugarPage() {
           </CardContent>
         </Card>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-semibold text-[var(--text-body)]">Estado operativo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Inventario</p>
-                  <p className="kpi-value text-3xl font-bold text-[var(--ok)]">{player.inventory}</p>
-                  <p className="text-xs text-[var(--text-muted)]" title="Costo de mantener inventario por semana.">
-                    {formatCurrency(player.inventory * 0.5)} / semana
-                  </p>
-                  <p className="text-xs italic text-[var(--text-muted)]">(US$0,50/ud)</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Backlog</p>
-                  <p className={`kpi-value text-3xl font-bold ${player.backlog > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
-                    {player.backlog}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]" title="Pedidos pendientes. El backlog penaliza más que inventario.">
-                    {player.backlog > 0 ? `${formatCurrency(player.backlog * 1)} / semana` : "Sin pendientes"}
-                  </p>
-                  <p className="text-xs italic text-[var(--text-muted)]">(US$1,00/ud)</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
-                <Truck className="w-4 h-4" /> Pipeline logístico
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-2 text-xs text-[var(--text-muted)]">{inTransit} unidades en tránsito hacia tu nodo.</p>
-              {pipeline.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">No hay envíos en camino.</p>
-              ) : (
-                <div className="space-y-2">
-                  {pipeline.map((p, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-md bg-[var(--bg-muted)] px-3 py-2">
-                      <span className="text-sm font-semibold text-[var(--text-strong)]">{p.quantity} unidades</span>
-                      <Badge variant="outline">Llega en {p.arrivesInRounds} ronda{p.arrivesInRounds !== 1 ? "s" : ""}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <Card className={hasSubmittedThisRound ? "opacity-80" : ""}>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-semibold text-[var(--text-body)] flex items-center gap-2">
-                <Send className="w-4 h-4" />
-                {upstream === "PRODUCTION" ? "Ordenar producción" : `Pedir a ${upstreamLabel}`}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {hasSubmittedThisRound ? (
-                <div className="rounded-lg border border-[#c7f2d6] bg-[#f0fdf5] p-3 text-sm text-[var(--ok)]">
-                  <div className="mb-1 flex items-center gap-2 font-semibold"><Check className="w-4 h-4" /> Pedido enviado</div>
-                  Esperando a que el resto de la cadena complete su decisión.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={orderQty}
-                    onChange={(e) => setOrderQty(e.target.value)}
-                    placeholder="Cantidad"
-                    className="text-center text-xl font-semibold"
-                  />
-                  <p className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                    <Info className="h-3.5 w-3.5" />
-                    Pedido sugerido = demanda reciente + ajuste gradual de backlog.
-                  </p>
-                  {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-                  <Button variant="cta" className="w-full" onClick={handleSubmitOrder} disabled={submitting}>
-                    {submitting ? "Enviando..." : "Confirmar pedido"}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-        </div>
-      </div>
-
-      <SupplyChainDiagram playerRole={role} submissions={submissions} className="mt-4" />
 
       {roundHistory.length > 0 ? (
         <Card className="mt-4">
