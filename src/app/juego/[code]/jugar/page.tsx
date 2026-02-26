@@ -31,6 +31,7 @@ interface PlayerStateData {
     accessCode: string;
     name: string;
     status: string;
+    mode: string;
     currentRound: number;
     totalRounds: number;
   };
@@ -259,7 +260,7 @@ export default function JugarPage() {
         </div>
       )}
 
-      <SupplyChainDiagram playerRole={role} submissions={submissions} className="mb-4" />
+      <SupplyChainDiagram playerRole={role} submissions={submissions} gameMode={game.mode} className="mb-4" />
 
       <div className="mb-4 flex flex-col lg:flex-row lg:items-stretch gap-4">
         {/* 1. Recibiste */}
