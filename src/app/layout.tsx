@@ -28,7 +28,7 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <footer className="mt-auto border-t border-[var(--border-soft)] bg-white/80 px-4 py-3 text-center text-xs text-[var(--text-muted)] backdrop-blur-sm">
           <small>
-            Beer Game YNK (Versión 2026.2.1) | Yáneken | Desarrollado por Sebastián
+            Beer Game YNK (Versión 2026.2.26) | Yáneken Labs | Desarrollado por Sebastián
             Gebhardt y Jacques Polette
           </small>
         </footer>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Beer, Plus, Users, Shield } from "lucide-react";
@@ -19,8 +20,7 @@ export function TopNav() {
     <header className="sticky top-0 z-40 border-b border-[var(--border-soft)] bg-white/88 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-[1120px] flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-strong)]">
-          <Beer className="h-4 w-4 text-[var(--accent)]" />
-          Beer Game YNK
+          <Image src="/logo.jpg" alt="Yáneken Labs" width={140} height={32} className="h-8 w-auto" />
         </Link>
 
         <nav className="flex items-center gap-1">

@@ -38,13 +38,9 @@ export default function HomePage() {
   return (
     <PageShell
       title="Beer Game YNK"
+      titleIcon={<Beer className="h-7 w-7 text-[var(--accent)]" />}
       subtitle="Simulación de cadena de suministro para visualizar decisiones, retrasos y efecto látigo."
-      rightSlot={
-        <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-body)]">
-          <Beer className="h-4 w-4 text-[var(--accent)]" />
-          Versión académica 2026.2.1
-        </div>
-      }
+      rightSlot={undefined}
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {actions.map((action) => {

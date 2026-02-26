@@ -66,6 +66,8 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
 
   return (
     <div className={cn("rounded-xl border border-[var(--border-soft)] bg-white px-4 py-5 sm:px-8 sm:py-6", className)}>
+      <h3 className="mb-3 text-lg font-bold text-[var(--text-strong)]">Cadena logística</h3>
+
       {/* Flow legend */}
       <div className="mb-4 flex items-center justify-center gap-8 text-xs font-semibold text-[var(--text-muted)] sm:gap-10 sm:text-sm">
         <span className="flex items-center gap-2">
