@@ -1,6 +1,6 @@
 import { ROLE_LABELS, ROLES, UPSTREAM, DOWNSTREAM, type Role } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Factory, ShoppingBag, ShoppingCart, Truck, Warehouse, Cog, Check, Clock, ArrowRight, ArrowLeft } from "lucide-react";
+import { Factory, ShoppingBag, ShoppingCart, Truck, Warehouse, Cog, Check, Clock, ArrowRight, ArrowLeft, RefreshCw } from "lucide-react";
 import type { ComponentType } from "react";
 
 interface SubmissionStatus {
@@ -35,7 +35,7 @@ const NODE_LABELS: Record<string, string> = {
   PRODUCTION: "Producción",
 };
 
-const CHAIN = ["CONSUMER", "RETAILER", "WHOLESALER", "DISTRIBUTOR", "FACTORY", "PRODUCTION"] as const;
+const CHAIN = ["PRODUCTION", "FACTORY", "DISTRIBUTOR", "WHOLESALER", "RETAILER", "CONSUMER"] as const;
 
 type NodeStatus = "submitted" | "must-play" | "pending" | null;
 
@@ -54,7 +54,7 @@ function getNodeStatus(
   if ((gameMode === "SOLO" || gameMode === "TEST") && nodeId !== playerRole) {
     const playerIdx = CHAIN.indexOf(playerRole);
     const nodeIdx = CHAIN.indexOf(nodeId as (typeof CHAIN)[number]);
-    if (nodeIdx < playerIdx) return "submitted";
+    if (nodeIdx > playerIdx) return "submitted";
     return "pending";
   }
 
@@ -81,7 +81,10 @@ export function SupplyChainDiagram({ playerRole, submissions, gameMode, classNam
 
   return (
     <div className={cn("rounded-xl border border-[var(--border-soft)] bg-white px-4 py-5 sm:px-8 sm:py-6", className)}>
-      <h3 className="mb-3 text-lg font-bold text-[var(--text-strong)]">Cadena logística</h3>
+      <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-[var(--text-strong)]">
+        <RefreshCw className="h-5 w-5" />
+        Diagrama de la cadena de valor
+      </h3>
 
       {/* Flow legend */}
       <div className="mb-4 flex items-center justify-center gap-8 text-xs font-semibold text-[var(--text-muted)] sm:gap-10 sm:text-sm">
@@ -92,9 +95,9 @@ export function SupplyChainDiagram({ playerRole, submissions, gameMode, classNam
           <span className="hidden sm:inline text-[var(--text-muted)]">(info aguas arriba)</span>
         </span>
         <span className="flex items-center gap-2">
-          <span className="inline-block h-[2px] w-6 rounded-full bg-[var(--ok)]" />
-          <span className="text-[var(--ok)]">Mercancía</span>
-          <ArrowRight className="h-3.5 w-3.5 text-[var(--ok)]" />
+          <span className="inline-block h-[2px] w-6 rounded-full bg-[var(--cta)]" />
+          <span className="text-[var(--cta)]">Mercancía</span>
+          <ArrowRight className="h-3.5 w-3.5 text-[var(--cta)]" />
           <span className="hidden sm:inline text-[var(--text-muted)]">(flujo aguas abajo)</span>
         </span>
       </div>
@@ -116,11 +119,11 @@ export function SupplyChainDiagram({ playerRole, submissions, gameMode, classNam
           if (nodeId === upstream) contextLabel = "Tu proveedor";
 
           return (
-            <div key={nodeId} className="flex items-center">
+            <div key={nodeId} className="flex items-start">
               {/* Connector between nodes */}
               {idx > 0 && (
-                <div className="flex w-5 flex-col items-center gap-0.5 sm:w-8">
-                  <ArrowRight className="h-3 w-3 text-[var(--ok)] sm:h-3.5 sm:w-3.5" />
+                <div className="mt-5 flex w-5 flex-col items-center gap-0.5 sm:mt-6 sm:w-8">
+                  <ArrowRight className="h-3 w-3 text-[var(--cta)] sm:h-3.5 sm:w-3.5" />
                   <ArrowLeft className="h-3 w-3 text-[var(--accent)] sm:h-3.5 sm:w-3.5" />
                 </div>
               )}
