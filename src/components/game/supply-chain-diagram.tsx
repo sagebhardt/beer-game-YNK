@@ -13,6 +13,7 @@ interface SubmissionStatus {
 interface SupplyChainDiagramProps {
   playerRole: Role;
   submissions?: SubmissionStatus | null;
+  gameMode?: string;
   className?: string;
 }
 
@@ -41,11 +42,25 @@ type NodeStatus = "submitted" | "must-play" | "pending" | null;
 function getNodeStatus(
   nodeId: string,
   playerRole: Role,
-  submissions?: SubmissionStatus | null
+  submissions?: SubmissionStatus | null,
+  gameMode?: string
 ): NodeStatus {
-  if (!submissions) return null;
   const isRole = (ROLES as readonly string[]).includes(nodeId);
   if (!isRole) return null;
+
+  // In SOLO/TEST mode, bots auto-play.
+  // Downstream roles (left of player) already played → "submitted"
+  // Upstream roles (right of player) wait for player → "pending"
+  if ((gameMode === "SOLO" || gameMode === "TEST") && nodeId !== playerRole) {
+    const playerIdx = CHAIN.indexOf(playerRole);
+    const nodeIdx = CHAIN.indexOf(nodeId as (typeof CHAIN)[number]);
+    if (nodeIdx < playerIdx) return "submitted";
+    return "pending";
+  }
+
+  if (!submissions) {
+    return nodeId === playerRole ? "must-play" : "pending";
+  }
 
   const roleKey = nodeId.toLowerCase() as keyof SubmissionStatus;
   if (submissions[roleKey]) return "submitted";
@@ -60,7 +75,7 @@ function statusLabel(status: NodeStatus): { text: string; icon: "check" | "clock
   return null;
 }
 
-export function SupplyChainDiagram({ playerRole, submissions, className }: SupplyChainDiagramProps) {
+export function SupplyChainDiagram({ playerRole, submissions, gameMode, className }: SupplyChainDiagramProps) {
   const downstream = DOWNSTREAM[playerRole];
   const upstream = UPSTREAM[playerRole];
 
@@ -92,7 +107,7 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
           const isPlayer = nodeId === playerRole;
           const isRole = (ROLES as readonly string[]).includes(nodeId);
           const isEdge = nodeId === "CONSUMER" || nodeId === "PRODUCTION";
-          const status = getNodeStatus(nodeId, playerRole, submissions);
+          const status = getNodeStatus(nodeId, playerRole, submissions, gameMode);
           const sLabel = statusLabel(status);
 
           // Contextual label for adjacent nodes
@@ -123,14 +138,15 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                       ? "border-[var(--cta-light-border)] bg-[var(--cta-light)] ring-2 ring-[var(--cta)]/20 shadow-md"
                       : status === "pending"
                       ? "border-[#fde68a] bg-[#fefce8]"
-                      : isPlayer
-                      ? "border-[var(--accent)] bg-[var(--accent-light)] ring-2 ring-[var(--accent)]/20 shadow-sm"
                       : "border-[var(--border-soft)] bg-white",
                     !isRole && "opacity-60"
                   )}
                 >
                   {isPlayer && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--accent)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm">
+                    <span className={cn(
+                      "absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap shadow-sm",
+                      status === "submitted" ? "bg-[var(--ok)]" : "bg-[var(--cta)]"
+                    )}>
                       Tu rol
                     </span>
                   )}
@@ -139,7 +155,6 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                     status === "submitted" ? "text-[var(--ok)]"
                       : status === "must-play" ? "text-[var(--cta)]"
                       : status === "pending" ? "text-[#ca8a04]"
-                      : isPlayer ? "text-[var(--accent)]"
                       : "text-[var(--text-muted)]"
                   )} />
                   <span className={cn(
@@ -147,7 +162,6 @@ export function SupplyChainDiagram({ playerRole, submissions, className }: Suppl
                     status === "submitted" ? "text-[var(--ok)]"
                       : status === "must-play" ? "text-[var(--cta)]"
                       : status === "pending" ? "text-[#ca8a04]"
-                      : isPlayer ? "text-[var(--accent)]"
                       : "text-[var(--text-body)]"
                   )}>
                     {label}
