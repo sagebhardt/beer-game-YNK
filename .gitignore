@@ -2,6 +2,5 @@ node_modules/
 .next/
 *.db
 *.db-journal
-.env
 .env.local
 custom-server.js
